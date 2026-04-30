@@ -1,6 +1,6 @@
 import { getAccessToken, logout } from "/auth/auth.js";
 
-const API_BASE_URL = window.location.origin;
+const API_BASE_URL = "https://health-plus-backend-1n66.onrender.com";
 
 export class ApiError extends Error {
   constructor(message, status) {
