@@ -1,0 +1,11 @@
+{
+  "name": "health-plus-fullstack",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install:backend": "npm --prefix backend install",
+    "dev": "npm --prefix backend run dev",
+    "start": "npm --prefix backend start",
+    "check": "npm --prefix backend run check"
+  }
+}

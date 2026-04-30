@@ -1,0 +1,15 @@
+export function IconSprite() {
+  return `
+    <svg class="icon-sprite" aria-hidden="true">
+      <symbol id="icon-video" viewBox="0 0 24 24"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h8A2.5 2.5 0 0 1 17 7.5v9A2.5 2.5 0 0 1 14.5 19h-8A2.5 2.5 0 0 1 4 16.5v-9Z"></path><path d="m17 10 4-2.5v9L17 14"></path></symbol>
+      <symbol id="icon-calendar" viewBox="0 0 24 24"><path d="M7 3v4M17 3v4M4 9h16"></path><path d="M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"></path></symbol>
+      <symbol id="icon-user" viewBox="0 0 24 24"><path d="M20 21a8 8 0 0 0-16 0"></path><path d="M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z"></path></symbol>
+      <symbol id="icon-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"></path><path d="m9 12 2 2 4-5"></path></symbol>
+      <symbol id="icon-wallet" viewBox="0 0 24 24"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H19a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5.5A2.5 2.5 0 0 1 3 17.5v-10Z"></path><path d="M18 12h3v4h-3a2 2 0 0 1 0-4Z"></path></symbol>
+      <symbol id="icon-star" viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3Z"></path></symbol>
+      <symbol id="icon-mail" viewBox="0 0 24 24"><path d="M4 5h16v14H4z"></path><path d="m4 7 8 6 8-6"></path></symbol>
+      <symbol id="icon-report" viewBox="0 0 24 24"><path d="M4 19.5V4.5A2.5 2.5 0 0 1 6.5 2h9L20 6.5v13A2.5 2.5 0 0 1 17.5 22h-11A2.5 2.5 0 0 1 4 19.5Z"></path><path d="M15 2v5h5M8 15h8M8 18h5M8 11h8"></path></symbol>
+      <symbol id="icon-prescription" viewBox="0 0 24 24"><path d="M5 3h8a5 5 0 0 1 0 10H8v8H5V3Z"></path><path d="m14 13 5 8M17 17l3-4"></path></symbol>
+    </svg>
+  `;
+}
