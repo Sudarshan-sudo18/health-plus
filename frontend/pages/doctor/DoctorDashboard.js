@@ -229,7 +229,7 @@ function bindDoctorActions(root, navigate, session) {
       loadDoctorDashboard(root, navigate, session);
     } catch (error) {
       toast(error.message);
-      if (error.status === 401 || error.status === 403) {
+      if (error.status === 401) {
         navigate("/login");
       }
     }
@@ -257,7 +257,7 @@ function bindDoctorActions(root, navigate, session) {
       loadDoctorDashboard(root, navigate, session);
     } catch (error) {
       toast(error.message);
-      if (error.status === 401 || error.status === 403) {
+      if (error.status === 401) {
         navigate("/login");
       }
     }

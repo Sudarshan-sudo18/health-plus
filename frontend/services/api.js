@@ -37,7 +37,7 @@ export async function apiFetch(path, options = {}) {
   const payload = await safeJson(response);
 
   if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) {
       logout();
     }
     throw new ApiError(payload.message || "Request failed.", response.status);

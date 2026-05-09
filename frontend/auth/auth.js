@@ -75,7 +75,8 @@ export async function refreshMe() {
 }
 
 export function getAccessToken() {
-  return getSession()?.token || null;
+  const session = getSession();
+  return session?.token || session?.accessToken || null;
 }
 
 export function getDashboardForRole(role) {

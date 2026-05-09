@@ -30,7 +30,7 @@ export async function upsertOwnDoctorProfile(user, payload = {}) {
     profilePayload.availability = normalizeAvailability(payload.availability);
   }
 
-  let doctor = await Doctor.findOne({ userId: user._id });
+  let doctor = await findOwnDoctorDocument(user);
 
   if (!doctor) {
     doctor = new Doctor(profilePayload);
@@ -47,17 +47,21 @@ export async function upsertOwnDoctorProfile(user, payload = {}) {
 
 export async function getOwnDoctorProfile(user) {
   assertDoctorUser(user);
-  const doctor = await Doctor.findOne({ userId: user._id });
+  const doctor = await findOwnDoctorDocument(user);
   return doctor ? serializeDoctor(doctor) : null;
 }
 
 export async function updateOwnAvailability(user, availability) {
   assertDoctorUser(user);
 
-  const doctor = await Doctor.findOne({ userId: user._id });
+  const doctor = await findOwnDoctorDocument(user);
 
   if (!doctor) {
     throw createHttpError(404, "Create your doctor profile before setting availability.");
+  }
+
+  if (!doctor.userId) {
+    doctor.userId = user._id;
   }
 
   doctor.availability = normalizeAvailability(availability);
@@ -213,6 +217,18 @@ function assertDoctorUser(user) {
   if (!user || user.role !== "doctor") {
     throw createHttpError(403, "Only doctor accounts can manage doctor profiles.");
   }
+}
+
+async function findOwnDoctorDocument(user) {
+  const doctor = await Doctor.findOne({
+    $or: [{ userId: user._id }, { email: user.email }]
+  });
+
+  if (doctor && !doctor.userId) {
+    doctor.userId = user._id;
+  }
+
+  return doctor;
 }
 
 function assertProfileEmail(user, email) {
