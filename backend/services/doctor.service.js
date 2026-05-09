@@ -54,23 +54,31 @@ export async function getOwnDoctorProfile(user) {
 export async function updateOwnAvailability(user, availability) {
   assertDoctorUser(user);
 
-  const doctor = await findOwnDoctorDocument(user);
+  const normalizedAvailability = normalizeAvailability(availability);
+  const doctor = await Doctor.findOneAndUpdate(
+    ownDoctorFilter(user),
+    {
+      $set: {
+        userId: user._id,
+        availability: normalizedAvailability
+      }
+    },
+    {
+      new: true,
+      runValidators: true,
+      context: "query"
+    }
+  );
 
   if (!doctor) {
     throw createHttpError(404, "Create your doctor profile before setting availability.");
   }
 
-  if (!doctor.userId) {
-    doctor.userId = user._id;
-  }
-
-  doctor.availability = normalizeAvailability(availability);
-  await doctor.save();
   return serializeDoctor(doctor);
 }
 
 export async function listPublicDoctors({ date } = {}) {
-  const doctors = await Doctor.find({ isApproved: true, isActive: true })
+  const doctors = await Doctor.find(publicDoctorFilter())
     .sort({ fullName: 1 })
     .lean();
 
@@ -94,7 +102,7 @@ export async function listPublicDoctors({ date } = {}) {
 export async function getPublicDoctorById(id, { date } = {}) {
   assertObjectId(id, "Doctor id is invalid.");
 
-  const doctor = await Doctor.findOne({ _id: id, isApproved: true, isActive: true }).lean();
+  const doctor = await Doctor.findOne({ _id: id, ...publicDoctorFilter() }).lean();
 
   if (!doctor) {
     throw createHttpError(404, "Approved active doctor not found.");
@@ -220,15 +228,26 @@ function assertDoctorUser(user) {
 }
 
 async function findOwnDoctorDocument(user) {
-  const doctor = await Doctor.findOne({
-    $or: [{ userId: user._id }, { email: user.email }]
-  });
+  const doctor = await Doctor.findOne(ownDoctorFilter(user));
 
   if (doctor && !doctor.userId) {
     doctor.userId = user._id;
   }
 
   return doctor;
+}
+
+function ownDoctorFilter(user) {
+  return {
+    $or: [{ userId: user._id }, { email: user.email }]
+  };
+}
+
+function publicDoctorFilter() {
+  return {
+    isApproved: true,
+    isActive: { $ne: false }
+  };
 }
 
 function assertProfileEmail(user, email) {

@@ -242,7 +242,7 @@ function bindDoctorActions(root, navigate, session) {
       .map((input) => ({
         day: input.dataset.availabilityDay,
         slots: input.value
-          .split(",")
+          .split(/[,\n;]+/)
           .map((slot) => slot.trim())
           .filter(Boolean)
       }))

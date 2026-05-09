@@ -37,7 +37,7 @@ export async function createBookingForPatient(user, payload = {}) {
     throw createHttpError(404, "Doctor not found.");
   }
 
-  if (!doctor.isApproved || !doctor.isActive) {
+  if (!doctor.isApproved || doctor.isActive === false) {
     throw createHttpError(403, "This doctor is not currently available for bookings.");
   }
 
