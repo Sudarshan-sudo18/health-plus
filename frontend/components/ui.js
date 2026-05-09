@@ -61,22 +61,34 @@ export function ErrorState(message = "Something went wrong.", actionLabel = "Try
 
 export function DoctorAvailabilityCard({ doctor, selectedDate, mode = "patient" }) {
   const doctorId = getRecordId(doctor);
+  const fullName = doctor.fullName || doctor.name || "Doctor";
   const specialization = doctor.specialization || doctor.specialty || "General medicine";
   const availability = getAvailabilityForDate(doctor, selectedDate);
-  const isApproved = doctor.isApproved !== false;
+  const isApproved = doctor.isApproved === true;
+  const isActive = doctor.isActive !== false;
   const availableSlots = availability.availableSlots;
   const bookedSlots = availability.bookedSlots;
+  const languages = doctor.languagesSpoken || doctor.languages || [];
 
   return `
     <article class="availability-card" data-doctor-card="${escapeHtml(doctorId)}">
       <div class="availability-head">
         <div>
           <span class="eyebrow">${escapeHtml(specialization)}</span>
-          <h3>${escapeHtml(doctor.name)}</h3>
+          <h3>${escapeHtml(fullName)}</h3>
           ${doctor.email ? `<p>${escapeHtml(doctor.email)}</p>` : ""}
         </div>
-        ${mode === "admin" ? StatusBadge(isApproved ? "approved" : "pending") : ""}
+        ${mode === "admin" ? StatusBadge(doctor.rejectionReason ? "rejected" : isActive ? (isApproved ? "approved" : "pending") : "inactive") : ""}
       </div>
+
+      <div class="doctor-card-meta">
+        <span>${escapeHtml(doctor.qualification || "Qualification pending")}</span>
+        <span>${escapeHtml(String(doctor.yearsOfExperience ?? 0))} years</span>
+        <strong>${escapeHtml(formatCurrency(doctor.consultationFee || 0))}</strong>
+      </div>
+
+      ${doctor.bio ? `<p class="doctor-bio">${escapeHtml(doctor.bio)}</p>` : ""}
+      ${languages.length ? `<div class="chip-row">${languages.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>` : ""}
 
       <div class="selected-day">
         <strong>${escapeHtml(availability.day)}</strong>
@@ -175,7 +187,12 @@ export function DoctorCard(doctor) {
 }
 
 export function LoadingState(message = "Loading secure dashboard data...") {
-  return `<div class="empty-state">${escapeHtml(message)}</div>`;
+  return `
+    <div class="empty-state loading-state">
+      <span class="spinner" aria-hidden="true"></span>
+      <strong>${escapeHtml(message)}</strong>
+    </div>
+  `;
 }
 
 export function toast(message) {
@@ -210,12 +227,16 @@ export function formatDateInputValue(date = new Date()) {
   return value.toISOString().slice(0, 10);
 }
 
-function formatFee(doctor) {
+export function formatCurrency(value, currency = "USD") {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: doctor.currency,
-    maximumFractionDigits: doctor.fee > 999 ? 0 : 2
-  }).format(doctor.fee);
+    currency,
+    maximumFractionDigits: Number(value) > 999 ? 0 : 2
+  }).format(Number(value || 0));
+}
+
+function formatFee(doctor) {
+  return formatCurrency(doctor.fee ?? doctor.consultationFee ?? 0, doctor.currency || "USD");
 }
 
 function renderSlotButton({ doctorId, slot, mode, disabled }) {
@@ -291,11 +312,16 @@ function normalizeBooking(booking) {
   return {
     id: getRecordId(booking),
     patientName: patient?.name || "Patient",
-    doctorName: doctor?.name || "Doctor",
-    date: formatDateLabel(booking.date),
-    time: booking.time || "",
+    doctorName: doctor?.fullName || doctor?.name || "Doctor",
+    date: formatDateLabel(booking.bookingDate || booking.date),
+    bookingDate: booking.bookingDate || booking.date,
+    time: booking.slot || booking.time || "",
+    slot: booking.slot || booking.time || "",
     status: booking.status || "pending",
-    paymentStatus: booking.paymentStatus || "pending"
+    paymentStatus: booking.paymentStatus || "pending",
+    notes: booking.notes || "",
+    cancelledBy: booking.cancelledBy || "",
+    cancellationReason: booking.cancellationReason || ""
   };
 }
 

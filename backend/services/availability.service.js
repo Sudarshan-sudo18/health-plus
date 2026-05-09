@@ -2,8 +2,8 @@ import { Booking } from "../models/Booking.js";
 import { createHttpError } from "../utils/httpError.js";
 
 export const ACTIVE_BOOKING_STATUSES = ["pending", "confirmed", "completed"];
+export const WEEK_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-const WEEK_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const DAY_ALIASES = new Map([
   ["sun", "sunday"],
   ["sunday", "sunday"],
@@ -23,6 +23,8 @@ const DAY_ALIASES = new Map([
   ["sat", "saturday"],
   ["saturday", "saturday"]
 ]);
+
+const SLOT_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export function normalizeBookingDate(value) {
   if (!value) {
@@ -53,8 +55,26 @@ export function normalizeBookingDate(value) {
   return new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate()));
 }
 
-export function normalizeSlotTime(value) {
-  return String(value || "").trim();
+export function assertNotPastDate(date) {
+  const bookingDate = normalizeBookingDate(date);
+  const today = new Date();
+  const todayUtc = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+
+  if (bookingDate < todayUtc) {
+    throw createHttpError(400, "Past dates cannot be booked.");
+  }
+
+  return bookingDate;
+}
+
+export function normalizeSlot(value) {
+  const slot = String(value || "").trim();
+
+  if (!SLOT_PATTERN.test(slot)) {
+    throw createHttpError(400, "Slot must use HH:mm 24-hour format.");
+  }
+
+  return slot;
 }
 
 export function getDateBounds(date) {
@@ -72,6 +92,39 @@ export function getWeekdayName(date) {
   return WEEK_DAYS[normalizeBookingDate(date).getUTCDay()];
 }
 
+export function normalizeAvailability(availability = []) {
+  if (!Array.isArray(availability)) {
+    throw createHttpError(400, "Availability must be an array.");
+  }
+
+  const seenDays = new Set();
+
+  return availability.map((entry) => {
+    const day = canonicalDayName(entry?.day);
+
+    if (!day) {
+      throw createHttpError(400, "Availability day is required.");
+    }
+
+    if (seenDays.has(day)) {
+      throw createHttpError(400, "Availability days must be unique.");
+    }
+
+    seenDays.add(day);
+
+    const slotSource = Array.isArray(entry?.slots) ? entry.slots : String(entry?.slots || "").split(",");
+    const slots = Array.from(
+      new Set(
+        slotSource
+          .map((slot) => normalizeSlot(slot))
+          .sort()
+      )
+    );
+
+    return { day, slots };
+  });
+}
+
 export function getWeeklySlotsForDate(availability = [], date) {
   const targetDay = normalizeDayName(getWeekdayName(date));
   const matchedAvailability = availability.find((entry) => normalizeDayName(entry.day) === targetDay);
@@ -79,13 +132,14 @@ export function getWeeklySlotsForDate(availability = [], date) {
   return Array.from(
     new Set(
       (matchedAvailability?.slots || [])
-        .map((slot) => normalizeSlotTime(slot))
+        .map((slot) => String(slot || "").trim())
         .filter(Boolean)
+        .sort()
     )
   );
 }
 
-export async function getBookedTimesByDoctor(doctorIds, date) {
+export async function getBookedSlotsByDoctor(doctorIds, date) {
   const ids = doctorIds.filter(Boolean);
 
   if (!ids.length) {
@@ -95,25 +149,25 @@ export async function getBookedTimesByDoctor(doctorIds, date) {
   const { start, end } = getDateBounds(date);
   const bookings = await Booking.find({
     doctorId: { $in: ids },
-    date: { $gte: start, $lt: end },
+    bookingDate: { $gte: start, $lt: end },
     status: { $in: ACTIVE_BOOKING_STATUSES }
   })
-    .select("doctorId time")
+    .select("doctorId slot")
     .lean();
 
-  return bookings.reduce((bookedTimes, booking) => {
+  return bookings.reduce((bookedSlots, booking) => {
     const doctorKey = booking.doctorId.toString();
-    const times = bookedTimes.get(doctorKey) || new Set();
-    times.add(booking.time);
-    bookedTimes.set(doctorKey, times);
-    return bookedTimes;
+    const slots = bookedSlots.get(doctorKey) || new Set();
+    slots.add(booking.slot);
+    bookedSlots.set(doctorKey, slots);
+    return bookedSlots;
   }, new Map());
 }
 
-export function withAvailabilityForDate(doctor, date, bookedTimes = new Set()) {
+export function withAvailabilityForDate(doctor, date, bookedSlots = new Set()) {
   const slots = getWeeklySlotsForDate(doctor.availability, date);
-  const bookedSlots = slots.filter((slot) => bookedTimes.has(slot));
-  const availableSlots = slots.filter((slot) => !bookedTimes.has(slot));
+  const booked = slots.filter((slot) => bookedSlots.has(slot));
+  const available = slots.filter((slot) => !bookedSlots.has(slot));
 
   return {
     ...doctor,
@@ -121,10 +175,15 @@ export function withAvailabilityForDate(doctor, date, bookedTimes = new Set()) {
       date: formatDateKey(date),
       day: getWeekdayName(date),
       slots,
-      bookedSlots,
-      availableSlots
+      bookedSlots: booked,
+      availableSlots: available
     }
   };
+}
+
+function canonicalDayName(value) {
+  const normalized = normalizeDayName(value);
+  return WEEK_DAYS.find((day) => normalizeDayName(day) === normalized) || "";
 }
 
 function normalizeDayName(value) {

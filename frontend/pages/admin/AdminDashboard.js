@@ -1,12 +1,14 @@
 import { AppLayout } from "/components/layout.js";
 import {
   BookingTable,
-  DoctorAvailabilityCard,
+  DataTable,
   ErrorState,
   LoadingState,
   MetricCard,
   Panel,
+  StatusBadge,
   escapeHtml,
+  formatCurrency,
   toast
 } from "/components/ui.js";
 import { apiFetch } from "/services/api.js";
@@ -17,7 +19,7 @@ export const AdminDashboard = {
     return AppLayout({
       activePath: path,
       title: "Admin Dashboard",
-      subtitle: "Review approved doctors, approve provider records when returned by the API, and manage bookings.",
+      subtitle: "Approve doctor profiles, manage provider access, and oversee platform bookings.",
       children: `<div id="adminContent">${LoadingState()}</div>`
     });
   },
@@ -28,12 +30,12 @@ export const AdminDashboard = {
 
 async function loadAdminDashboard(root, navigate) {
   const content = root.querySelector("#adminContent");
-  content.innerHTML = LoadingState("Loading doctors and bookings...");
+  content.innerHTML = LoadingState("Loading doctor approvals and bookings...");
 
   try {
     const [doctorData, bookingData] = await Promise.all([
-      apiFetch("/api/doctors"),
-      apiFetch("/api/bookings/my")
+      apiFetch("/api/admin/doctors"),
+      apiFetch("/api/admin/bookings")
     ]);
 
     content.innerHTML = renderAdminData({
@@ -54,32 +56,24 @@ async function loadAdminDashboard(root, navigate) {
 }
 
 function renderAdminData(data) {
-  const pendingBookings = data.bookings.filter((booking) => booking.status === "pending").length;
+  const pendingDoctors = data.doctors.filter((doctor) => !doctor.isApproved).length;
+  const activeDoctors = data.doctors.filter((doctor) => doctor.isApproved && doctor.isActive).length;
   const activeBookings = data.bookings.filter((booking) => booking.status !== "cancelled").length;
+  const unpaidBookings = data.bookings.filter((booking) => booking.paymentStatus === "pending").length;
 
   return `
     <section class="metric-grid">
-      ${MetricCard({ icon: "icon-shield", label: "Doctors", value: String(data.doctors.length), note: "Approved doctor records" })}
-      ${MetricCard({ icon: "icon-calendar", label: "Bookings", value: String(data.bookings.length), note: "Across all patients" })}
-      ${MetricCard({ icon: "icon-video", label: "Active", value: String(activeBookings), note: "Not cancelled" })}
-      ${MetricCard({ icon: "icon-report", label: "Pending", value: String(pendingBookings), note: "Awaiting confirmation or payment" })}
+      ${MetricCard({ icon: "icon-shield", label: "Active doctors", value: String(activeDoctors), note: "Approved and visible" })}
+      ${MetricCard({ icon: "icon-user", label: "Pending review", value: String(pendingDoctors), note: "Awaiting admin action" })}
+      ${MetricCard({ icon: "icon-calendar", label: "Active bookings", value: String(activeBookings), note: "Not cancelled" })}
+      ${MetricCard({ icon: "icon-report", label: "Payment pending", value: String(unpaidBookings), note: "Can be waived by admin" })}
     </section>
 
     <div class="dashboard-grid admin-dashboard-grid">
       ${Panel({
-        eyebrow: "Doctor approvals",
-        title: "Doctors",
-        children: `
-          <div class="doctor-grid compact-grid availability-grid">
-            ${
-              data.doctors.length
-                ? data.doctors
-                    .map((doctor) => DoctorAvailabilityCard({ doctor, selectedDate: new Date().toISOString().slice(0, 10), mode: "admin" }))
-                    .join("")
-                : `<div class="empty-state">No doctor records returned by the API.</div>`
-            }
-          </div>
-        `
+        eyebrow: "Approval queue",
+        title: "Doctor profiles",
+        children: renderDoctorApprovalTable(data.doctors)
       })}
 
       ${Panel({
@@ -89,9 +83,14 @@ function renderAdminData(data) {
           bookings: data.bookings,
           perspective: "admin",
           actions: (row) => `
-            <button class="small-button danger-button" type="button" data-cancel-booking="${escapeHtml(row.id)}" ${row.status === "cancelled" ? "disabled" : ""}>
-              ${row.status === "cancelled" ? "Cancelled" : "Cancel"}
-            </button>
+            <div class="inline-actions">
+              <button class="small-button danger-button" type="button" data-admin-cancel-booking="${escapeHtml(row.id)}" ${row.status === "cancelled" ? "disabled" : ""}>
+                ${row.status === "cancelled" ? "Cancelled" : "Cancel"}
+              </button>
+              <button class="small-button" type="button" data-waive-booking="${escapeHtml(row.id)}" ${row.paymentStatus === "waived" ? "disabled" : ""}>
+                ${row.paymentStatus === "waived" ? "Waived" : "Waive payment"}
+              </button>
+            </div>
           `
         })
       })}
@@ -99,44 +98,152 @@ function renderAdminData(data) {
   `;
 }
 
+function renderDoctorApprovalTable(doctors) {
+  return DataTable({
+    columns: [
+      {
+        label: "Doctor",
+        key: "fullName",
+        render: (row) => `
+          <strong>${escapeHtml(row.fullName)}</strong>
+          <span class="muted-cell">${escapeHtml(row.email)}</span>
+        `
+      },
+      {
+        label: "Practice",
+        key: "specialization",
+        render: (row) => `
+          ${escapeHtml(row.specialization)}
+          <span class="muted-cell">${escapeHtml(row.qualification)} · ${escapeHtml(String(row.yearsOfExperience))} years</span>
+        `
+      },
+      { label: "Fee", key: "consultationFee", render: (row) => formatCurrency(row.consultationFee) },
+      {
+        label: "Status",
+        key: "status",
+        render: (row) => `
+          ${StatusBadge(row.rejectionReason ? "rejected" : row.isActive ? (row.isApproved ? "approved" : "pending") : "inactive")}
+          ${row.rejectionReason ? `<span class="muted-cell">${escapeHtml(row.rejectionReason)}</span>` : ""}
+        `
+      },
+      {
+        label: "Action",
+        key: "id",
+        render: (row) => `
+          <div class="admin-action-stack">
+            <div class="inline-actions">
+              <button class="small-button" type="button" data-approve-doctor="${escapeHtml(row.id)}" ${row.isApproved && row.isActive ? "disabled" : ""}>Approve</button>
+              <button class="small-button danger-button" type="button" data-deactivate-doctor="${escapeHtml(row.id)}" ${!row.isActive ? "disabled" : ""}>Deactivate</button>
+              <button class="small-button danger-button" type="button" data-delete-doctor="${escapeHtml(row.id)}">Remove</button>
+            </div>
+            <div class="reject-row">
+              <input data-reject-reason="${escapeHtml(row.id)}" placeholder="Rejection reason">
+              <button class="small-button danger-button" type="button" data-reject-doctor="${escapeHtml(row.id)}">Reject</button>
+            </div>
+          </div>
+        `
+      }
+    ],
+    rows: doctors,
+    emptyText: "No doctor profiles have been submitted yet."
+  });
+}
+
 function bindAdminActions(root, navigate) {
   root.querySelectorAll("[data-approve-doctor]").forEach((button) => {
     button.addEventListener("click", async () => {
-      try {
-        await apiFetch(`/api/doctors/${button.dataset.approveDoctor}/approve`, {
-          method: "PATCH"
-        });
+      await runAdminAction(root, navigate, async () => {
+        await apiFetch(`/api/admin/doctors/${button.dataset.approveDoctor}/approve`, { method: "PATCH" });
         toast("Doctor approved.");
-        loadAdminDashboard(root, navigate);
-      } catch (error) {
-        toast(error.message);
-        if (error.status === 401 || error.status === 403) {
-          navigate("/login");
-        }
-      }
+      });
     });
   });
 
-  root.querySelectorAll("[data-cancel-booking]").forEach((button) => {
+  root.querySelectorAll("[data-reject-doctor]").forEach((button) => {
     button.addEventListener("click", async () => {
-      try {
-        await apiFetch(`/api/bookings/${button.dataset.cancelBooking}/cancel`, {
-          method: "PATCH"
-        });
-        toast("Booking cancelled.");
-        loadAdminDashboard(root, navigate);
-      } catch (error) {
-        toast(error.message);
-        if (error.status === 401 || error.status === 403) {
-          navigate("/login");
-        }
+      const reason = root.querySelector(`[data-reject-reason="${cssEscape(button.dataset.rejectDoctor)}"]`)?.value || "";
+
+      if (!reason.trim()) {
+        toast("Enter a rejection reason.");
+        return;
       }
+
+      await runAdminAction(root, navigate, async () => {
+        await apiFetch(`/api/admin/doctors/${button.dataset.rejectDoctor}/reject`, {
+          method: "PATCH",
+          body: { reason }
+        });
+        toast("Doctor rejected.");
+      });
     });
   });
+
+  root.querySelectorAll("[data-deactivate-doctor]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await runAdminAction(root, navigate, async () => {
+        await apiFetch(`/api/admin/doctors/${button.dataset.deactivateDoctor}/deactivate`, { method: "PATCH" });
+        toast("Doctor deactivated.");
+      });
+    });
+  });
+
+  root.querySelectorAll("[data-delete-doctor]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      if (!window.confirm("Remove this doctor profile?")) {
+        return;
+      }
+
+      await runAdminAction(root, navigate, async () => {
+        await apiFetch(`/api/admin/doctors/${button.dataset.deleteDoctor}`, { method: "DELETE" });
+        toast("Doctor profile removed.");
+      });
+    });
+  });
+
+  root.querySelectorAll("[data-admin-cancel-booking]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await runAdminAction(root, navigate, async () => {
+        await apiFetch(`/api/admin/bookings/${button.dataset.adminCancelBooking}/cancel`, {
+          method: "PATCH",
+          body: { reason: "Cancelled by admin" }
+        });
+        toast("Booking cancelled.");
+      });
+    });
+  });
+
+  root.querySelectorAll("[data-waive-booking]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await runAdminAction(root, navigate, async () => {
+        await apiFetch(`/api/admin/bookings/${button.dataset.waiveBooking}/waive-payment`, { method: "PATCH" });
+        toast("Payment waived.");
+      });
+    });
+  });
+}
+
+async function runAdminAction(root, navigate, action) {
+  try {
+    await action();
+    loadAdminDashboard(root, navigate);
+  } catch (error) {
+    toast(error.message);
+    if (error.status === 401 || error.status === 403) {
+      navigate("/login");
+    }
+  }
 }
 
 function bindRetry(root, navigate) {
   root.querySelector("[data-retry-load]")?.addEventListener("click", () => {
     loadAdminDashboard(root, navigate);
   });
+}
+
+function cssEscape(value) {
+  if (window.CSS?.escape) {
+    return window.CSS.escape(value);
+  }
+
+  return String(value).replaceAll('"', '\\"');
 }

@@ -58,6 +58,16 @@ app.use((error, req, res, next) => {
   if (error && error.code === 11000) {
     return res.status(409).json({ message: "A record with that unique value already exists." });
   }
+  if (error?.name === "ValidationError") {
+    return res.status(400).json({
+      message: Object.values(error.errors)
+        .map((item) => item.message)
+        .join(" ")
+    });
+  }
+  if (error?.name === "CastError") {
+    return res.status(400).json({ message: "Invalid record identifier." });
+  }
   const status = error.status || 500;
   res.status(status).json({
     message: error.message || "Unexpected server error."
