@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { connectDatabase } from "./config/db.js";
 import { requireAuth } from "./middleware/auth.js";
+import { apiRouter } from "./routes/api.routes.js";
 import { authRouter } from "./routes/auth.routes.js";
 import { dashboardRouter } from "./routes/dashboard.routes.js";
 
@@ -30,6 +31,7 @@ app.use("/auth", authRouter);
 app.get("/me", requireAuth, (req, res) => {
   res.json({ user: req.safeUser });
 });
+app.use("/api", apiRouter);
 
 app.get(["/", "/login", "/signup", "/admin", "/doctor", "/patient"], (req, res, next) => {
   const wantsHtml = String(req.headers.accept || "").includes("text/html");

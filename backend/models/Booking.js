@@ -36,4 +36,14 @@ const bookingSchema = new mongoose.Schema({
   }
 });
 
+bookingSchema.index(
+  { doctorId: 1, date: 1, time: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      status: { $in: ["pending", "confirmed", "completed"] }
+    }
+  }
+);
+
 export const Booking = mongoose.model("Booking", bookingSchema);
