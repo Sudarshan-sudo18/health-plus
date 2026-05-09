@@ -1,5 +1,5 @@
 import { AppLayout } from "/components/layout.js";
-import { DataTable, LoadingState, MetricCard, Panel, StatusBadge, toast } from "/components/ui.js";
+import { BookingTable, ErrorState, LoadingState, MetricCard, Panel, escapeHtml, toast } from "/components/ui.js";
 import { apiFetch } from "/services/api.js";
 
 export const DoctorDashboard = {
@@ -8,115 +8,87 @@ export const DoctorDashboard = {
     return AppLayout({
       activePath: path,
       title: "Doctor Dashboard",
-      subtitle: "View appointments and patient records from the protected doctor API route.",
+      subtitle: "View your patient bookings from the protected booking API.",
       children: `<div id="doctorContent">${LoadingState()}</div>`
     });
   },
-  afterRender({ navigate }, root) {
-    loadDoctorDashboard(root, navigate);
+  afterRender({ navigate, session }, root) {
+    loadDoctorDashboard(root, navigate, session);
   }
 };
 
-async function loadDoctorDashboard(root, navigate) {
+async function loadDoctorDashboard(root, navigate, session) {
+  const content = root.querySelector("#doctorContent");
+  content.innerHTML = LoadingState("Loading your bookings...");
+
   try {
-    const data = await apiFetch("/doctor");
-    root.querySelector("#doctorContent").innerHTML = renderDoctorData(data);
-    bindDoctorActions(root, navigate);
+    const data = await apiFetch("/api/bookings/my");
+    content.innerHTML = renderDoctorData({
+      bookings: data.bookings || [],
+      user: session?.user
+    });
+    bindDoctorActions(root, navigate, session);
   } catch (error) {
-    toast(error.message);
-    navigate("/login");
+    if (error.status === 401 || error.status === 403) {
+      toast("Please log in again.");
+      navigate("/login");
+      return;
+    }
+
+    content.innerHTML = ErrorState(error.message);
+    bindRetry(root, navigate, session);
   }
 }
 
 function renderDoctorData(data) {
-  const doctor = data.doctor;
-  const patientIds = new Set(data.appointments.map((item) => item.patientId));
+  const pendingBookings = data.bookings.filter((booking) => booking.status === "pending").length;
+  const confirmedBookings = data.bookings.filter((booking) => booking.status === "confirmed").length;
+  const patientIds = new Set(
+    data.bookings
+      .map((booking) => (typeof booking.patientId === "object" && booking.patientId ? booking.patientId._id || booking.patientId.id : booking.patientId))
+      .filter(Boolean)
+  );
 
   return `
     <section class="doctor-profile-band">
-      <div class="doctor-photo large-avatar" style="--avatar-x:${doctor.avatar % 2 === 0 ? "0%" : "100%"};--avatar-y:${doctor.avatar < 2 ? "0%" : "100%"};"></div>
       <div>
-        <p class="eyebrow">${doctor.specialty}</p>
-        <h2>${doctor.name}</h2>
-        <p>${doctor.license}</p>
-        <div class="chip-row">${doctor.languages.map((item) => `<span>${item}</span>`).join("")}</div>
+        <p class="eyebrow">Doctor workspace</p>
+        <h2>${escapeHtml(data.user?.name || "Doctor")}</h2>
+        <p>${escapeHtml(data.user?.email || "Review your assigned Health Plus bookings.")}</p>
+      </div>
+      <div class="profile-summary">
+        <span>Bookings are pulled from the protected booking API and matched to your doctor account.</span>
       </div>
     </section>
 
     <section class="metric-grid">
-      ${MetricCard({ icon: "icon-calendar", label: "Assigned appointments", value: String(data.appointments.length), note: "Visible only to this doctor" })}
+      ${MetricCard({ icon: "icon-calendar", label: "Bookings", value: String(data.bookings.length), note: "Visible only to this doctor" })}
       ${MetricCard({ icon: "icon-user", label: "Patients", value: String(patientIds.size), note: "With active or past visits" })}
-      ${MetricCard({ icon: "icon-prescription", label: "Records", value: String(data.patientRecords.length), note: "Prescriptions and diagnoses" })}
+      ${MetricCard({ icon: "icon-video", label: "Confirmed", value: String(confirmedBookings), note: "Ready for consultation" })}
+      ${MetricCard({ icon: "icon-report", label: "Pending", value: String(pendingBookings), note: "Awaiting confirmation or payment" })}
     </section>
 
     <div class="dashboard-grid">
       ${Panel({
         eyebrow: "Appointments",
-        title: "Upcoming and recent consultations",
-        children: DataTable({
-          columns: [
-            { label: "Patient", key: "patientName" },
-            { label: "Date", key: "date", render: (row) => `${row.date} ${row.time}` },
-            { label: "Reason", key: "reason" },
-            { label: "Language", key: "language" },
-            { label: "Status", key: "status", render: (row) => StatusBadge(row.status) },
-            {
-              label: "Action",
-              key: "id",
-              render: (row) => `
-                <div class="inline-actions">
-                  <button class="small-button" type="button" data-doctor-status="${row.id}:confirmed">Accept</button>
-                  <button class="small-button" type="button" data-doctor-status="${row.id}:completed">Complete</button>
-                </div>
-              `
-            }
-          ],
-          rows: data.appointments,
-          emptyText: "No appointments assigned to this doctor."
+        title: "Your bookings",
+        children: BookingTable({
+          bookings: data.bookings,
+          perspective: "doctor"
         })
-      })}
-
-      ${Panel({
-        eyebrow: "Patient records",
-        title: "Linked medical records",
-        children: data.patientRecords.length
-          ? `
-            <div class="record-grid">
-              ${data.patientRecords
-                .map(
-                  (record) => `
-                    <article class="record-card">
-                      <span>${record.issuedOn}</span>
-                      <h3>${record.diagnosis}</h3>
-                      <p>${record.medicines}</p>
-                      <small>${record.notes}</small>
-                    </article>
-                  `
-                )
-                .join("")}
-            </div>
-          `
-          : `<div class="empty-state">No patient records are linked to your appointments yet.</div>`
       })}
     </div>
   `;
 }
 
-function bindDoctorActions(root, navigate) {
-  root.querySelectorAll("[data-doctor-status]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const [appointmentId, status] = button.dataset.doctorStatus.split(":");
-      try {
-        await apiFetch(`/doctor/appointments/${appointmentId}/status`, {
-          method: "PATCH",
-          body: { status }
-        });
-        toast("Appointment updated.");
-        loadDoctorDashboard(root, navigate);
-      } catch (error) {
-        toast(error.message);
-        navigate("/login");
-      }
-    });
+function bindDoctorActions(root, navigate, session) {
+  root.querySelector("[data-retry-load]")?.addEventListener("click", () => {
+    loadDoctorDashboard(root, navigate, session);
+  });
+}
+
+function bindRetry(root, navigate, session) {
+  root.querySelector("[data-retry-load]")?.addEventListener("click", () => {
+    loadDoctorDashboard(root, navigate, session);
   });
 }

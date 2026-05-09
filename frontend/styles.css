@@ -404,6 +404,10 @@ select:focus {
   gap: 1rem;
 }
 
+.dashboard-grid > .panel:only-child {
+  grid-column: 1 / -1;
+}
+
 .admin-dashboard-grid .panel:last-child,
 .patient-dashboard-grid .panel:first-child,
 .patient-dashboard-grid .panel:last-child {
@@ -434,6 +438,14 @@ select:focus {
   font-weight: 900;
 }
 
+.primary-button:disabled,
+.small-button:disabled,
+.slot-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+  transform: none;
+}
+
 .primary-button {
   padding: 0.7rem 0.95rem;
   color: #fff;
@@ -445,6 +457,11 @@ select:focus {
   padding: 0.55rem 0.75rem;
   color: var(--blue-strong);
   background: #e9f6ff;
+}
+
+.danger-button {
+  color: #9a3d34;
+  background: #fff2f0;
 }
 
 .primary-button:hover,
@@ -459,6 +476,18 @@ select:focus {
   border-radius: var(--radius);
   background: #fbfdff;
   color: #38586d;
+}
+
+.empty-state.compact {
+  padding: 0.7rem;
+  font-size: 0.86rem;
+}
+
+.error-state {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
 }
 
 .notice.danger {
@@ -519,14 +548,31 @@ tr:last-child td {
 }
 
 .status-suspended,
-.status-requested {
+.status-requested,
+.status-pending {
   background: #fff6df;
   color: var(--amber);
 }
 
-.status-completed {
+.status-completed,
+.status-confirmed,
+.status-paid,
+.status-approved {
   background: #e8f3ff;
   color: var(--blue-strong);
+}
+
+.status-cancelled {
+  background: #fff2f0;
+  color: #9a3d34;
+}
+
+.muted-cell {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
 }
 
 .report-grid,
@@ -565,11 +611,20 @@ tr:last-child td {
 
 .doctor-profile-band {
   display: grid;
-  grid-template-columns: 10rem minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.38fr);
   gap: 1rem;
   align-items: center;
   margin-bottom: 1rem;
   padding: 1rem;
+}
+
+.profile-summary {
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #f8fcff;
+  color: var(--muted);
+  line-height: 1.55;
 }
 
 .patient-hero {
@@ -595,6 +650,116 @@ tr:last-child td {
 
 .compact-grid {
   margin-top: 1rem;
+}
+
+.availability-grid {
+  align-items: stretch;
+}
+
+.availability-card {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(30, 82, 122, 0.08);
+}
+
+.availability-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.availability-head p {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.selected-day {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem;
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+}
+
+.selected-day span {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.slot-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.slot-button {
+  display: inline-flex;
+  min-height: 2.35rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid #b9d7e8;
+  border-radius: 8px;
+  background: #f8fcff;
+  color: var(--blue-strong);
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
+.slot-button:hover,
+.slot-button.active {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+}
+
+.slot-button.unavailable {
+  border-color: #e5c5bf;
+  background: #fff5f3;
+  color: #9a3d34;
+}
+
+.slot-button.readonly {
+  cursor: default;
+}
+
+.weekly-schedule {
+  display: grid;
+  gap: 0.45rem;
+  padding-top: 0.15rem;
+}
+
+.weekly-schedule span,
+.weekly-schedule.empty {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fbfdff;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.weekly-schedule strong {
+  color: var(--text);
+}
+
+.booking-submit {
+  width: 100%;
+}
+
+.compact-field {
+  min-width: 12rem;
 }
 
 .doctor-card {
@@ -723,8 +888,13 @@ tr:last-child td {
 
   .auth-hero,
   .dashboard-grid,
-  .patient-hero {
+  .patient-hero,
+  .doctor-profile-band {
     grid-template-columns: 1fr;
+  }
+
+  .slot-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -757,8 +927,17 @@ tr:last-child td {
   .record-grid,
   .doctor-grid,
   .booking-form,
-  .doctor-profile-band {
+  .doctor-profile-band,
+  .slot-grid {
     grid-template-columns: 1fr;
+  }
+
+  .panel-head,
+  .availability-head,
+  .selected-day,
+  .error-state {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .auth-copy {

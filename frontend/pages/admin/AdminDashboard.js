@@ -1,5 +1,14 @@
 import { AppLayout } from "/components/layout.js";
-import { DataTable, LoadingState, MetricCard, Panel, StatusBadge, toast } from "/components/ui.js";
+import {
+  BookingTable,
+  DoctorAvailabilityCard,
+  ErrorState,
+  LoadingState,
+  MetricCard,
+  Panel,
+  escapeHtml,
+  toast
+} from "/components/ui.js";
 import { apiFetch } from "/services/api.js";
 
 export const AdminDashboard = {
@@ -8,7 +17,7 @@ export const AdminDashboard = {
     return AppLayout({
       activePath: path,
       title: "Admin Dashboard",
-      subtitle: "Manage users, appointments, reports, and operational controls from the protected admin API route.",
+      subtitle: "Review approved doctors, approve provider records when returned by the API, and manage bookings.",
       children: `<div id="adminContent">${LoadingState()}</div>`
     });
   },
@@ -18,102 +27,116 @@ export const AdminDashboard = {
 };
 
 async function loadAdminDashboard(root, navigate) {
+  const content = root.querySelector("#adminContent");
+  content.innerHTML = LoadingState("Loading doctors and bookings...");
+
   try {
-    const data = await apiFetch("/admin");
-    root.querySelector("#adminContent").innerHTML = renderAdminData(data);
+    const [doctorData, bookingData] = await Promise.all([
+      apiFetch("/api/doctors"),
+      apiFetch("/api/bookings/my")
+    ]);
+
+    content.innerHTML = renderAdminData({
+      doctors: doctorData.doctors || [],
+      bookings: bookingData.bookings || []
+    });
     bindAdminActions(root, navigate);
   } catch (error) {
-    toast(error.message);
-    navigate("/login");
+    if (error.status === 401 || error.status === 403) {
+      toast("Please log in again.");
+      navigate("/login");
+      return;
+    }
+
+    content.innerHTML = ErrorState(error.message);
+    bindRetry(root, navigate);
   }
 }
 
 function renderAdminData(data) {
+  const pendingBookings = data.bookings.filter((booking) => booking.status === "pending").length;
+  const activeBookings = data.bookings.filter((booking) => booking.status !== "cancelled").length;
+
   return `
     <section class="metric-grid">
-      ${MetricCard({ icon: "icon-user", label: "Users", value: String(data.users.length), note: "Across all roles" })}
-      ${MetricCard({ icon: "icon-calendar", label: "Appointments", value: String(data.appointments.length), note: "Requested, confirmed, completed" })}
-      ${MetricCard({ icon: "icon-shield", label: "Doctors", value: String(data.doctors.length), note: "Verified providers" })}
-      ${MetricCard({ icon: "icon-report", label: "Reports", value: String(data.reports.length), note: "Operational snapshots" })}
+      ${MetricCard({ icon: "icon-shield", label: "Doctors", value: String(data.doctors.length), note: "Approved doctor records" })}
+      ${MetricCard({ icon: "icon-calendar", label: "Bookings", value: String(data.bookings.length), note: "Across all patients" })}
+      ${MetricCard({ icon: "icon-video", label: "Active", value: String(activeBookings), note: "Not cancelled" })}
+      ${MetricCard({ icon: "icon-report", label: "Pending", value: String(pendingBookings), note: "Awaiting confirmation or payment" })}
     </section>
 
     <div class="dashboard-grid admin-dashboard-grid">
       ${Panel({
-        eyebrow: "Manage users",
-        title: "Users and roles",
-        children: DataTable({
-          columns: [
-            { label: "Name", key: "name" },
-            { label: "Email", key: "email" },
-            { label: "Role", key: "role", render: (row) => `<strong>${row.role}</strong>` },
-            { label: "Created", key: "createdAt", render: (row) => row.createdAt ? new Date(row.createdAt).toLocaleDateString() : "New" }
-          ],
-          rows: data.users
-        })
-      })}
-
-      ${Panel({
-        eyebrow: "Manage appointments",
-        title: "Appointment queue",
-        children: DataTable({
-          columns: [
-            { label: "Patient", key: "patientName" },
-            { label: "Doctor", key: "doctorName" },
-            { label: "Date", key: "date" },
-            { label: "Status", key: "status", render: (row) => StatusBadge(row.status) },
-            {
-              label: "Action",
-              key: "id",
-              render: (row) => `
-                <div class="inline-actions">
-                  <button class="small-button" type="button" data-admin-status="${row.id}:confirmed">Confirm</button>
-                  <button class="small-button" type="button" data-admin-status="${row.id}:completed">Complete</button>
-                </div>
-              `
-            }
-          ],
-          rows: data.appointments
-        })
-      })}
-
-      ${Panel({
-        eyebrow: "Reports",
-        title: "Operational reports",
+        eyebrow: "Doctor approvals",
+        title: "Doctors",
         children: `
-          <div class="report-grid">
-            ${data.reports
-              .map(
-                (report) => `
-                  <article class="report-card">
-                    <span>${report.label}</span>
-                    <strong>${report.value}</strong>
-                    <small>${report.trend}</small>
-                  </article>
-                `
-              )
-              .join("")}
+          <div class="doctor-grid compact-grid availability-grid">
+            ${
+              data.doctors.length
+                ? data.doctors
+                    .map((doctor) => DoctorAvailabilityCard({ doctor, selectedDate: new Date().toISOString().slice(0, 10), mode: "admin" }))
+                    .join("")
+                : `<div class="empty-state">No doctor records returned by the API.</div>`
+            }
           </div>
         `
+      })}
+
+      ${Panel({
+        eyebrow: "Booking control",
+        title: "Bookings",
+        children: BookingTable({
+          bookings: data.bookings,
+          perspective: "admin",
+          actions: (row) => `
+            <button class="small-button danger-button" type="button" data-cancel-booking="${escapeHtml(row.id)}" ${row.status === "cancelled" ? "disabled" : ""}>
+              ${row.status === "cancelled" ? "Cancelled" : "Cancel"}
+            </button>
+          `
+        })
       })}
     </div>
   `;
 }
 
 function bindAdminActions(root, navigate) {
-  root.querySelectorAll("[data-admin-status]").forEach((button) => {
+  root.querySelectorAll("[data-approve-doctor]").forEach((button) => {
     button.addEventListener("click", async () => {
-      const [appointmentId, status] = button.dataset.adminStatus.split(":");
       try {
-        await apiFetch(`/admin/appointments/${appointmentId}/status`, {
-          method: "PATCH",
-          body: { status }
+        await apiFetch(`/api/doctors/${button.dataset.approveDoctor}/approve`, {
+          method: "PATCH"
         });
-        toast("Appointment status updated.");
+        toast("Doctor approved.");
         loadAdminDashboard(root, navigate);
       } catch (error) {
         toast(error.message);
-        navigate("/login");
+        if (error.status === 401 || error.status === 403) {
+          navigate("/login");
+        }
       }
     });
+  });
+
+  root.querySelectorAll("[data-cancel-booking]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      try {
+        await apiFetch(`/api/bookings/${button.dataset.cancelBooking}/cancel`, {
+          method: "PATCH"
+        });
+        toast("Booking cancelled.");
+        loadAdminDashboard(root, navigate);
+      } catch (error) {
+        toast(error.message);
+        if (error.status === 401 || error.status === 403) {
+          navigate("/login");
+        }
+      }
+    });
+  });
+}
+
+function bindRetry(root, navigate) {
+  root.querySelector("[data-retry-load]")?.addEventListener("click", () => {
+    loadAdminDashboard(root, navigate);
   });
 }

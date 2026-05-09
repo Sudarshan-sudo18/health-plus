@@ -50,6 +50,95 @@ export function StatusBadge(status) {
   return `<span class="status-badge status-${escapeHtml(normalized)}">${escapeHtml(normalized)}</span>`;
 }
 
+export function ErrorState(message = "Something went wrong.", actionLabel = "Try again") {
+  return `
+    <div class="empty-state error-state">
+      <strong>${escapeHtml(message)}</strong>
+      ${actionLabel ? `<button class="small-button" type="button" data-retry-load>${escapeHtml(actionLabel)}</button>` : ""}
+    </div>
+  `;
+}
+
+export function DoctorAvailabilityCard({ doctor, selectedDate, mode = "patient" }) {
+  const doctorId = getRecordId(doctor);
+  const specialization = doctor.specialization || doctor.specialty || "General medicine";
+  const availability = getAvailabilityForDate(doctor, selectedDate);
+  const isApproved = doctor.isApproved !== false;
+  const availableSlots = availability.availableSlots;
+  const bookedSlots = availability.bookedSlots;
+
+  return `
+    <article class="availability-card" data-doctor-card="${escapeHtml(doctorId)}">
+      <div class="availability-head">
+        <div>
+          <span class="eyebrow">${escapeHtml(specialization)}</span>
+          <h3>${escapeHtml(doctor.name)}</h3>
+          ${doctor.email ? `<p>${escapeHtml(doctor.email)}</p>` : ""}
+        </div>
+        ${mode === "admin" ? StatusBadge(isApproved ? "approved" : "pending") : ""}
+      </div>
+
+      <div class="selected-day">
+        <strong>${escapeHtml(availability.day)}</strong>
+        <span>${escapeHtml(formatDateLabel(selectedDate))}</span>
+      </div>
+
+      <div class="slot-grid" aria-label="Available appointment slots">
+        ${
+          availableSlots.length
+            ? availableSlots
+                .map((slot) => renderSlotButton({ doctorId, slot, mode, disabled: false }))
+                .join("")
+            : `<div class="empty-state compact">No open slots for this date.</div>`
+        }
+        ${bookedSlots.map((slot) => renderSlotButton({ doctorId, slot, mode, disabled: true })).join("")}
+      </div>
+
+      ${renderWeeklyAvailability(doctor.availability)}
+
+      ${
+        mode === "patient"
+          ? `<button class="primary-button booking-submit" type="button" data-create-booking="${escapeHtml(doctorId)}" disabled>
+              <svg><use href="#icon-calendar"></use></svg>
+              Book selected slot
+            </button>`
+          : `<button class="small-button" type="button" data-approve-doctor="${escapeHtml(doctorId)}" ${isApproved ? "disabled" : ""}>
+              ${isApproved ? "Approved" : "Approve doctor"}
+            </button>`
+      }
+    </article>
+  `;
+}
+
+export function BookingTable({ bookings, perspective = "patient", actions }) {
+  const rows = bookings.map(normalizeBooking);
+  const columns = [];
+
+  if (perspective !== "patient") {
+    columns.push({ label: "Patient", key: "patientName" });
+  }
+
+  if (perspective !== "doctor") {
+    columns.push({ label: "Doctor", key: "doctorName" });
+  }
+
+  columns.push(
+    { label: "Date", key: "date", render: (row) => `${escapeHtml(row.date)} <span class="muted-cell">${escapeHtml(row.time)}</span>` },
+    { label: "Status", key: "status", render: (row) => StatusBadge(row.status) },
+    { label: "Payment", key: "paymentStatus", render: (row) => StatusBadge(row.paymentStatus) }
+  );
+
+  if (actions) {
+    columns.push({ label: "Action", key: "id", render: actions });
+  }
+
+  return DataTable({
+    columns,
+    rows,
+    emptyText: "No bookings found."
+  });
+}
+
 export function DoctorCard(doctor) {
   const avatar = [
     { x: "0%", y: "0%" },
@@ -107,10 +196,137 @@ export function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+export function getRecordId(record) {
+  return String(record?.id || record?._id || "");
+}
+
+export function formatDateInputValue(date = new Date()) {
+  const value = date instanceof Date ? date : new Date(date);
+
+  if (Number.isNaN(value.getTime())) {
+    return formatDateInputValue(new Date());
+  }
+
+  return value.toISOString().slice(0, 10);
+}
+
 function formatFee(doctor) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: doctor.currency,
     maximumFractionDigits: doctor.fee > 999 ? 0 : 2
   }).format(doctor.fee);
+}
+
+function renderSlotButton({ doctorId, slot, mode, disabled }) {
+  if (mode !== "patient") {
+    return `<span class="slot-button readonly${disabled ? " unavailable" : ""}">${escapeHtml(slot)}${disabled ? " booked" : ""}</span>`;
+  }
+
+  return `
+    <button
+      class="slot-button${disabled ? " unavailable" : ""}"
+      type="button"
+      data-select-slot="${escapeHtml(doctorId)}"
+      data-time="${escapeHtml(slot)}"
+      ${disabled ? "disabled" : ""}
+    >
+      ${escapeHtml(slot)}${disabled ? " booked" : ""}
+    </button>
+  `;
+}
+
+function renderWeeklyAvailability(availability = []) {
+  if (!availability.length) {
+    return `<div class="weekly-schedule empty">Weekly availability not set.</div>`;
+  }
+
+  return `
+    <div class="weekly-schedule">
+      ${availability
+        .map(
+          (item) => `
+            <span>
+              <strong>${escapeHtml(item.day || "Day")}</strong>
+              ${escapeHtml((item.slots || []).join(", ") || "No slots")}
+            </span>
+          `
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function getAvailabilityForDate(doctor, selectedDate) {
+  const day = getWeekdayName(selectedDate);
+  const fromApi = doctor.availabilityForDate;
+
+  if (fromApi) {
+    const allSlots = uniqueSlots(fromApi.slots || [...(fromApi.availableSlots || []), ...(fromApi.bookedSlots || [])]);
+    const bookedSlots = uniqueSlots(fromApi.bookedSlots || []);
+    const availableSlots = fromApi.availableSlots
+      ? uniqueSlots(fromApi.availableSlots)
+      : allSlots.filter((slot) => !bookedSlots.includes(slot));
+
+    return {
+      day: fromApi.day || day,
+      availableSlots,
+      bookedSlots
+    };
+  }
+
+  const weeklyMatch = (doctor.availability || []).find((item) => sameDay(item.day, day));
+
+  return {
+    day,
+    availableSlots: uniqueSlots(weeklyMatch?.slots || []),
+    bookedSlots: []
+  };
+}
+
+function normalizeBooking(booking) {
+  const patient = typeof booking.patientId === "object" && booking.patientId ? booking.patientId : null;
+  const doctor = typeof booking.doctorId === "object" && booking.doctorId ? booking.doctorId : null;
+
+  return {
+    id: getRecordId(booking),
+    patientName: patient?.name || "Patient",
+    doctorName: doctor?.name || "Doctor",
+    date: formatDateLabel(booking.date),
+    time: booking.time || "",
+    status: booking.status || "pending",
+    paymentStatus: booking.paymentStatus || "pending"
+  };
+}
+
+function uniqueSlots(slots) {
+  return Array.from(new Set(slots.map((slot) => String(slot || "").trim()).filter(Boolean)));
+}
+
+function sameDay(value, expectedDay) {
+  return normalizeDay(value) === normalizeDay(expectedDay);
+}
+
+function normalizeDay(value) {
+  return String(value || "").trim().toLowerCase().slice(0, 3);
+}
+
+function getWeekdayName(dateKey) {
+  const date = new Date(`${dateKey || formatDateInputValue()}T00:00:00Z`);
+  return new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "UTC" }).format(date);
+}
+
+function formatDateLabel(value) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(value || "");
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC"
+  }).format(date);
 }
