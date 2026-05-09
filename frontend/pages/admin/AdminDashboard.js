@@ -57,7 +57,7 @@ async function loadAdminDashboard(root, navigate) {
 
 function renderAdminData(data) {
   const pendingDoctors = data.doctors.filter((doctor) => !doctor.isApproved).length;
-  const activeDoctors = data.doctors.filter((doctor) => doctor.isApproved && doctor.isActive).length;
+  const activeDoctors = data.doctors.filter((doctor) => doctor.isApproved && doctor.isActive !== false).length;
   const activeBookings = data.bookings.filter((booking) => booking.status !== "cancelled").length;
   const unpaidBookings = data.bookings.filter((booking) => booking.paymentStatus === "pending").length;
 
@@ -114,7 +114,7 @@ function renderDoctorApprovalTable(doctors) {
         key: "specialization",
         render: (row) => `
           ${escapeHtml(row.specialization)}
-          <span class="muted-cell">${escapeHtml(row.qualification)} · ${escapeHtml(String(row.yearsOfExperience))} years</span>
+          <span class="muted-cell">${escapeHtml(row.qualification)} &middot; ${escapeHtml(String(row.yearsOfExperience))} years</span>
         `
       },
       { label: "Fee", key: "consultationFee", render: (row) => formatCurrency(row.consultationFee) },
@@ -168,6 +168,10 @@ function bindAdminActions(root, navigate) {
         return;
       }
 
+      if (!window.confirm("Reject this doctor profile?")) {
+        return;
+      }
+
       await runAdminAction(root, navigate, async () => {
         await apiFetch(`/api/admin/doctors/${button.dataset.rejectDoctor}/reject`, {
           method: "PATCH",
@@ -180,6 +184,10 @@ function bindAdminActions(root, navigate) {
 
   root.querySelectorAll("[data-deactivate-doctor]").forEach((button) => {
     button.addEventListener("click", async () => {
+      if (!window.confirm("Deactivate this doctor profile?")) {
+        return;
+      }
+
       await runAdminAction(root, navigate, async () => {
         await apiFetch(`/api/admin/doctors/${button.dataset.deactivateDoctor}/deactivate`, { method: "PATCH" });
         toast("Doctor deactivated.");
@@ -202,6 +210,10 @@ function bindAdminActions(root, navigate) {
 
   root.querySelectorAll("[data-admin-cancel-booking]").forEach((button) => {
     button.addEventListener("click", async () => {
+      if (!window.confirm("Cancel this booking?")) {
+        return;
+      }
+
       await runAdminAction(root, navigate, async () => {
         await apiFetch(`/api/admin/bookings/${button.dataset.adminCancelBooking}/cancel`, {
           method: "PATCH",

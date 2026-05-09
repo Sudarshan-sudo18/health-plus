@@ -93,6 +93,7 @@ function renderPatientData(data) {
           <label class="booking-note-field">
             Consultation notes
             <textarea id="bookingNotes" rows="3" maxlength="1000" placeholder="Briefly describe the concern for the doctor"></textarea>
+            <span>Shared with the doctor when you confirm a slot.</span>
           </label>
           <div class="doctor-grid compact-grid availability-grid">
             ${

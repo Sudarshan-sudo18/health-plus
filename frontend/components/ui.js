@@ -28,12 +28,17 @@ export function Panel({ eyebrow, title, children, actions = "" }) {
 
 export function DataTable({ columns, rows, emptyText = "No records found." }) {
   if (!rows.length) {
-    return `<div class="empty-state">${escapeHtml(emptyText)}</div>`;
+    return `
+      <div class="empty-state table-empty">
+        <svg><use href="#icon-report"></use></svg>
+        <strong>${escapeHtml(emptyText)}</strong>
+      </div>
+    `;
   }
 
   return `
     <div class="table-wrap">
-      <table>
+      <table class="data-table">
         <thead><tr>${columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("")}</tr></thead>
         <tbody>
           ${rows
@@ -92,7 +97,7 @@ export function DoctorAvailabilityCard({ doctor, selectedDate, mode = "patient" 
 
       <div class="selected-day">
         <strong>${escapeHtml(availability.day)}</strong>
-        <span>${escapeHtml(formatDateLabel(selectedDate))}</span>
+        <span>${escapeHtml(formatDateLabel(selectedDate))} &middot; ${availableSlots.length} open</span>
       </div>
 
       <div class="slot-grid" aria-label="Available appointment slots">
@@ -188,9 +193,16 @@ export function DoctorCard(doctor) {
 
 export function LoadingState(message = "Loading secure dashboard data...") {
   return `
-    <div class="empty-state loading-state">
-      <span class="spinner" aria-hidden="true"></span>
-      <strong>${escapeHtml(message)}</strong>
+    <div class="loading-panel" aria-live="polite">
+      <div class="loading-state">
+        <span class="spinner" aria-hidden="true"></span>
+        <strong>${escapeHtml(message)}</strong>
+      </div>
+      <div class="skeleton-grid" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
     </div>
   `;
 }
@@ -250,6 +262,7 @@ function renderSlotButton({ doctorId, slot, mode, disabled }) {
       type="button"
       data-select-slot="${escapeHtml(doctorId)}"
       data-time="${escapeHtml(slot)}"
+      aria-pressed="false"
       ${disabled ? "disabled" : ""}
     >
       ${escapeHtml(slot)}${disabled ? " booked" : ""}

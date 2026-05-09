@@ -124,7 +124,7 @@ function renderProfileStatus(profile) {
       <div>
         <p class="eyebrow">${escapeHtml(profile.specialization)}</p>
         <h2>${escapeHtml(profile.fullName)}</h2>
-        <p>${escapeHtml(profile.qualification)} · ${escapeHtml(String(profile.yearsOfExperience))} years experience</p>
+        <p>${escapeHtml(profile.qualification)} &middot; ${escapeHtml(String(profile.yearsOfExperience))} years experience</p>
       </div>
       <div class="profile-summary">
         ${StatusBadge(status)}
@@ -189,12 +189,13 @@ function renderProfileForm(profile, user) {
 function renderAvailabilityForm(profile) {
   return `
     <form id="availabilityForm" class="availability-editor">
+      <p class="form-helper">Enter 24-hour slots separated by commas, semicolons, or new lines. Example: 09:00, 09:30, 10:00.</p>
       ${WEEK_DAYS.map((day) => {
         const slots = (profile?.availability || []).find((item) => item.day === day)?.slots || [];
         return `
           <label>
             ${day}
-            <input data-availability-day="${day}" value="${escapeHtml(slots.join(", "))}">
+            <input data-availability-day="${day}" value="${escapeHtml(slots.join(", "))}" placeholder="09:00, 09:30, 10:00">
           </label>
         `;
       }).join("")}
