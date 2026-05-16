@@ -1,4 +1,4 @@
-import { getAccessToken, logout } from "/auth/auth.js";
+import { getAccessToken, getRoleFromPath, logout } from "/auth/auth.js";
 
 const API_BASE_URL =
   window.HEALTH_PLUS_API_URL ||
@@ -15,6 +15,7 @@ export class ApiError extends Error {
 }
 
 export async function apiFetch(path, options = {}) {
+  const role = options.role || getRoleFromPath();
   const headers = {
     Accept: "application/json",
     "Content-Type": "application/json",
@@ -22,7 +23,7 @@ export async function apiFetch(path, options = {}) {
   };
 
   if (options.auth !== false) {
-    const token = getAccessToken();
+    const token = getAccessToken(role);
     if (token) {
       headers.Authorization = `Bearer ${token}`;
     }
@@ -38,7 +39,7 @@ export async function apiFetch(path, options = {}) {
 
   if (!response.ok) {
     if (response.status === 401) {
-      logout();
+      logout(role);
     }
     throw new ApiError(payload.message || "Request failed.", response.status);
   }

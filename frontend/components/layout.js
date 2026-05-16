@@ -1,4 +1,4 @@
-import { getDashboardForRole, getSession, logout } from "/auth/auth.js";
+import { getDashboardForRole, getRoleFromPath, getSession, logout } from "/auth/auth.js";
 import { navigate } from "/router.js";
 
 export const CUSTOMER_SUPPORT_EMAIL = "care@healthplus.example";
@@ -29,7 +29,8 @@ const roleSections = {
 };
 
 export function AppLayout({ title, subtitle, activePath, activeSection = DEFAULT_SECTION, children }) {
-  const session = getSession();
+  const routeRole = getRoleFromPath(activePath);
+  const session = getSession(routeRole);
   const user = session?.user;
   const dashboardPath = user ? getDashboardForRole(user.role) : "/login";
   const roleLabel = user ? sentenceCase(user.role) : "Guest";

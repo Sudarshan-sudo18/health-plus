@@ -42,16 +42,17 @@ export async function renderRoute() {
     return;
   }
 
-  let activeSession = getSession();
+  let activeSession = getSession(route.role);
 
   if (route.public) {
-    if (route.path === "/" && activeSession && getAccessToken()) {
+    activeSession = getSession();
+    if (route.path === "/" && activeSession && getAccessToken(activeSession.role)) {
       appRoot.innerHTML = renderAuthLoading("Opening your workspace...");
       try {
-        activeSession = await refreshMe();
+        activeSession = await refreshMe(activeSession.role);
         navigate(getDashboardForRole(activeSession.role));
       } catch {
-        logout();
+        logout(activeSession?.role);
         navigate("/login");
       }
       return;
@@ -64,16 +65,16 @@ export async function renderRoute() {
   appRoot.innerHTML = renderAuthLoading("Checking your access...");
   document.title = "Health Plus";
 
-  if (!activeSession || !getAccessToken()) {
+  if (!activeSession || !getAccessToken(route.role)) {
     const denied = encodeURIComponent(route.path);
     replaceRoute(`/login?denied=${denied}`);
     return;
   }
 
   try {
-    activeSession = await refreshMe();
+    activeSession = await refreshMe(route.role);
   } catch {
-    logout();
+    logout(route.role);
     toast("Please log in again.");
     replaceRoute("/login");
     return;
@@ -145,7 +146,7 @@ function maybeBlockForTerms(session) {
   appRoot.insertAdjacentHTML("beforeend", TermsConsentModal(session.user));
   bindTermsConsent(appRoot, async () => {
     try {
-      await acceptTerms();
+      await acceptTerms(session.role);
       toast("Terms accepted. Welcome back.");
       renderRoute();
     } catch (error) {
