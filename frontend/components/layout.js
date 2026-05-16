@@ -1,12 +1,40 @@
 import { getDashboardForRole, getSession, logout } from "/auth/auth.js";
 import { navigate } from "/router.js";
 
-export function AppLayout({ title, subtitle, activePath, children }) {
+export const CUSTOMER_SUPPORT_EMAIL = "care@healthplus.example";
+
+const DEFAULT_SECTION = "overview";
+
+const roleSections = {
+  admin: [
+    ["overview", "Overview", "icon-report"],
+    ["doctors", "Doctors", "icon-user"],
+    ["appointments", "Appointments", "icon-calendar"],
+    ["payments", "Payments", "icon-wallet"]
+  ],
+  doctor: [
+    ["overview", "Overview", "icon-report"],
+    ["appointments", "Appointments", "icon-calendar"],
+    ["patients", "Patients", "icon-user"],
+    ["profile", "Profile", "icon-shield"],
+    ["availability", "Availability", "icon-video"],
+    ["payments", "Payments", "icon-wallet"]
+  ],
+  patient: [
+    ["overview", "Overview", "icon-report"],
+    ["doctors", "Doctors", "icon-user"],
+    ["appointments", "Appointments", "icon-calendar"],
+    ["payments", "Payments", "icon-wallet"]
+  ]
+};
+
+export function AppLayout({ title, subtitle, activePath, activeSection = DEFAULT_SECTION, children }) {
   const session = getSession();
   const user = session?.user;
   const dashboardPath = user ? getDashboardForRole(user.role) : "/login";
   const roleLabel = user ? sentenceCase(user.role) : "Guest";
   const userName = user?.name || user?.email || "Health Plus user";
+  const section = getSectionMeta(user?.role, activeSection);
 
   return `
     <div class="app-frame dashboard-app">
@@ -22,8 +50,16 @@ export function AppLayout({ title, subtitle, activePath, children }) {
         <div class="sidebar-section">
           <span class="sidebar-label">Workspace</span>
           <nav class="sidebar-nav" aria-label="Role navigation">
-            ${user ? roleNav(user.role, activePath) : `<a class="nav-link" href="/login" data-link>Login</a>`}
+            ${user ? roleNav(user.role, activePath, activeSection) : `<a class="nav-link" href="/login" data-link>Login</a>`}
           </nav>
+        </div>
+
+        <div class="sidebar-section sidebar-secondary">
+          <span class="sidebar-label">Account</span>
+          <a class="nav-link" href="/login" data-link>
+            <svg><use href="#icon-user"></use></svg>
+            <span>Switch role</span>
+          </a>
         </div>
 
         <div class="sidebar-card">
@@ -52,7 +88,7 @@ export function AppLayout({ title, subtitle, activePath, children }) {
           <div class="topbar-actions">
             <div class="account-pill">
               <svg><use href="#icon-shield"></use></svg>
-              <span>${escapeHtml(roleLabel)}</span>
+              <span>${escapeHtml(section?.label || roleLabel)}</span>
             </div>
           </div>
         </header>
@@ -62,12 +98,29 @@ export function AppLayout({ title, subtitle, activePath, children }) {
         </main>
 
         <footer class="footer">
-          <div><strong>Health Plus</strong><span> Care delivery, scheduling, and approvals</span></div>
-          <div class="support-line"><svg><use href="#icon-mail"></use></svg><span>care@healthplus.example</span></div>
+          <div class="footer-brand">
+            <span class="brand-mark footer-mark" aria-hidden="true"><span></span></span>
+            <span class="footer-brand-copy">
+              <strong>Health Plus</strong>
+              <small>Virtual care coordination for patients, doctors, and admins.</small>
+            </span>
+          </div>
+          <div class="footer-support">
+            <span>Customer support</span>
+            <a class="support-line" href="mailto:${CUSTOMER_SUPPORT_EMAIL}">
+              <svg><use href="#icon-mail"></use></svg>
+              <strong>${CUSTOMER_SUPPORT_EMAIL}</strong>
+            </a>
+          </div>
         </footer>
       </div>
     </div>
   `;
+}
+
+export function getActiveSection(query, allowedSections, fallback = DEFAULT_SECTION) {
+  const section = query?.get("section") || fallback;
+  return allowedSections.includes(section) ? section : fallback;
 }
 
 export function bindLayoutActions(root) {
@@ -80,32 +133,32 @@ export function bindLayoutActions(root) {
   }
 }
 
-function roleNav(role, activePath) {
-  const items = {
-    admin: [
-      ["/admin", "Admin console", "icon-shield"],
-      ["/login", "Switch role", "icon-user"]
-    ],
-    doctor: [
-      ["/doctor", "Doctor workspace", "icon-video"],
-      ["/login", "Switch role", "icon-user"]
-    ],
-    patient: [
-      ["/patient", "Patient portal", "icon-calendar"],
-      ["/login", "Switch role", "icon-user"]
-    ]
-  }[role] || [];
+function roleNav(role, activePath, activeSection) {
+  const items = roleSections[role] || [];
+  const dashboardPath = getDashboardForRole(role);
 
   return items
     .map(
-      ([href, label, icon]) => `
-        <a class="nav-link${activePath === href ? " active" : ""}" href="${href}" data-link>
+      ([section, label, icon]) => {
+        const href = section === DEFAULT_SECTION ? dashboardPath : `${dashboardPath}?section=${section}`;
+        const isActive = activePath === dashboardPath && activeSection === section;
+
+        return `
+        <a class="nav-link${isActive ? " active" : ""}" href="${href}" data-link ${isActive ? 'aria-current="page"' : ""}>
           <svg><use href="#${icon}"></use></svg>
           <span>${label}</span>
         </a>
-      `
+      `;
+      }
     )
     .join("");
+}
+
+function getSectionMeta(role, activeSection) {
+  const match = (roleSections[role] || []).find(([section]) => section === activeSection);
+  if (!match) return null;
+  const [id, label, icon] = match;
+  return { id, label, icon };
 }
 
 function sentenceCase(value) {

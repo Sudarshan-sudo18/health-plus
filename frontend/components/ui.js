@@ -26,6 +26,38 @@ export function Panel({ eyebrow, title, children, actions = "" }) {
   `;
 }
 
+export function QuickActionGrid(actions = []) {
+  return `
+    <div class="quick-action-grid">
+      ${actions
+        .map(
+          (action) => `
+            <a class="quick-action-card" href="${escapeHtml(action.href)}" data-link>
+              <span class="metric-icon"><svg><use href="#${escapeHtml(action.icon)}"></use></svg></span>
+              <span>
+                <strong>${escapeHtml(action.label)}</strong>
+                <small>${escapeHtml(action.note || "")}</small>
+              </span>
+            </a>
+          `
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+export function CompactList({ items = [], emptyText = "No recent activity.", renderItem }) {
+  if (!items.length) {
+    return `<div class="empty-state compact">${escapeHtml(emptyText)}</div>`;
+  }
+
+  return `
+    <div class="compact-list">
+      ${items.map((item) => `<article class="compact-list-item">${renderItem(item)}</article>`).join("")}
+    </div>
+  `;
+}
+
 export function DataTable({ columns, rows, emptyText = "No records found." }) {
   if (!rows.length) {
     return `
@@ -191,7 +223,7 @@ export function DoctorCard(doctor) {
   `;
 }
 
-export function LoadingState(message = "Loading secure dashboard data...") {
+export function LoadingState(message = "Loading dashboard data...") {
   return `
     <div class="loading-panel" aria-live="polite">
       <div class="loading-state">
@@ -318,7 +350,7 @@ function getAvailabilityForDate(doctor, selectedDate) {
   };
 }
 
-function normalizeBooking(booking) {
+export function normalizeBooking(booking) {
   const patient = typeof booking.patientId === "object" && booking.patientId ? booking.patientId : null;
   const doctor = typeof booking.doctorId === "object" && booking.doctorId ? booking.doctorId : null;
 

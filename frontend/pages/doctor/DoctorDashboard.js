@@ -1,37 +1,45 @@
-import { AppLayout } from "/components/layout.js";
+import { AppLayout, getActiveSection } from "/components/layout.js";
 import {
   BookingTable,
+  CompactList,
+  DataTable,
   ErrorState,
   LoadingState,
   MetricCard,
   Panel,
+  QuickActionGrid,
   StatusBadge,
   escapeHtml,
   formatCurrency,
+  normalizeBooking,
   toast
 } from "/components/ui.js";
 import { apiFetch } from "/services/api.js";
 
 const WEEK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const DOCTOR_SECTIONS = ["overview", "appointments", "patients", "profile", "availability", "payments"];
 
 export const DoctorDashboard = {
   title: "Health Plus | Doctor",
-  render({ path }) {
+  render({ path, query }) {
+    const section = getActiveSection(query, DOCTOR_SECTIONS);
+
     return AppLayout({
       activePath: path,
-      title: "Doctor Dashboard",
-      subtitle: "Complete onboarding, maintain availability, and manage patient booking status.",
+      activeSection: section,
+      title: getDoctorTitle(section),
+      subtitle: getDoctorSubtitle(section),
       children: `<div id="doctorContent">${LoadingState()}</div>`
     });
   },
-  afterRender({ navigate, session }, root) {
-    loadDoctorDashboard(root, navigate, session);
+  afterRender({ navigate, session, query }, root) {
+    loadDoctorDashboard(root, navigate, session, getActiveSection(query, DOCTOR_SECTIONS));
   }
 };
 
-async function loadDoctorDashboard(root, navigate, session) {
+async function loadDoctorDashboard(root, navigate, session, section) {
   const content = root.querySelector("#doctorContent");
-  content.innerHTML = LoadingState("Loading profile and bookings...");
+  content.innerHTML = LoadingState("Loading doctor workspace...");
 
   try {
     const [profileData, bookingData] = await Promise.all([
@@ -42,9 +50,10 @@ async function loadDoctorDashboard(root, navigate, session) {
     content.innerHTML = renderDoctorData({
       profile: profileData.doctor,
       bookings: bookingData.bookings || [],
-      user: session?.user
+      user: session?.user,
+      section
     });
-    bindDoctorActions(root, navigate, session);
+    bindDoctorActions(root, navigate, session, section);
   } catch (error) {
     if (error.status === 401 || error.status === 403) {
       toast("Please log in again.");
@@ -53,7 +62,7 @@ async function loadDoctorDashboard(root, navigate, session) {
     }
 
     content.innerHTML = ErrorState(error.message);
-    bindRetry(root, navigate, session);
+    bindRetry(root, navigate, session, section);
   }
 }
 
@@ -67,37 +76,137 @@ function renderDoctorData(data) {
       .filter(Boolean)
   );
 
-  return `
-    ${renderProfileStatus(profile)}
-
+  const metrics = `
     <section class="metric-grid">
       ${MetricCard({ icon: "icon-shield", label: "Profile", value: profile ? profileStatusLabel(profile) : "Draft", note: profile ? formatCurrency(profile.consultationFee) : "Submit for approval" })}
-      ${MetricCard({ icon: "icon-calendar", label: "Bookings", value: String(data.bookings.length), note: "Assigned to your doctor profile" })}
-      ${MetricCard({ icon: "icon-user", label: "Patients", value: String(patientIds.size), note: "Unique booked patients" })}
+      ${MetricCard({ icon: "icon-calendar", label: "Bookings", value: String(data.bookings.length), note: "All consultations" })}
+      ${MetricCard({ icon: "icon-user", label: "Patients", value: String(patientIds.size), note: "Unique patients" })}
       ${MetricCard({ icon: "icon-video", label: "Confirmed", value: String(confirmedBookings), note: `${pendingBookings} pending` })}
     </section>
+  `;
 
-    <div class="dashboard-grid doctor-dashboard-grid">
-      ${Panel({
-        eyebrow: "Onboarding",
-        title: "Doctor profile",
-        children: renderProfileForm(profile, data.user)
-      })}
+  if (data.section === "appointments") {
+    return renderDoctorAppointmentsSection(data);
+  }
 
-      ${Panel({
-        eyebrow: "Weekly schedule",
-        title: "Availability",
-        children: renderAvailabilityForm(profile)
-      })}
+  if (data.section === "patients") {
+    return renderDoctorPatientsSection(data);
+  }
 
+  if (data.section === "profile") {
+    return renderDoctorProfileSection(data);
+  }
+
+  if (data.section === "availability") {
+    return renderDoctorAvailabilitySection(data);
+  }
+
+  if (data.section === "payments") {
+    return renderDoctorPaymentsSection(data);
+  }
+
+  return renderDoctorOverview(data, metrics);
+}
+
+function renderDoctorOverview(data, metrics) {
+  const rows = data.bookings.map(normalizeBooking);
+  const upcoming = rows.filter((booking) => ["pending", "confirmed"].includes(booking.status)).slice(0, 4);
+  const recent = rows.slice(0, 4);
+
+  return `
+    <div class="section-stack">
+      ${renderProfileStatus(data.profile)}
+      ${metrics}
+      <div class="dashboard-grid overview-grid">
+        ${Panel({
+          eyebrow: "Quick actions",
+          title: "Workspace shortcuts",
+          children: QuickActionGrid([
+            { href: "/doctor?section=appointments", icon: "icon-calendar", label: "Appointments", note: "Confirm or complete visits" },
+            { href: "/doctor?section=availability", icon: "icon-video", label: "Availability", note: "Update weekly slots" },
+            { href: "/doctor?section=profile", icon: "icon-shield", label: "Profile", note: "Maintain onboarding details" }
+          ])
+        })}
+        ${Panel({
+          eyebrow: "Upcoming",
+          title: "Consultations",
+          children: renderCompactBookings(upcoming, "No upcoming consultations.")
+        })}
+        ${Panel({
+          eyebrow: "Activity",
+          title: "Recent bookings",
+          children: renderCompactBookings(recent, "No booking activity yet.")
+        })}
+        ${Panel({
+          eyebrow: "Status",
+          title: "Attention",
+          children: renderDoctorAlerts(data.profile, data.bookings)
+        })}
+      </div>
+    </div>
+  `;
+}
+
+function renderDoctorAppointmentsSection(data) {
+  return `
+    <div class="section-stack">
       ${Panel({
         eyebrow: "Patient bookings",
-        title: "Consultations",
+        title: "Appointments",
         children: BookingTable({
           bookings: data.bookings,
           perspective: "doctor",
           actions: renderDoctorBookingActions
         })
+      })}
+    </div>
+  `;
+}
+
+function renderDoctorPatientsSection(data) {
+  return `
+    <div class="section-stack">
+      ${Panel({
+        eyebrow: "Patient records",
+        title: "Booked patients",
+        children: renderPatientTable(data.bookings)
+      })}
+    </div>
+  `;
+}
+
+function renderDoctorProfileSection(data) {
+  return `
+    <div class="section-stack">
+      ${renderProfileStatus(data.profile)}
+      ${Panel({
+        eyebrow: "Onboarding",
+        title: "Doctor profile",
+        children: renderProfileForm(data.profile, data.user)
+      })}
+    </div>
+  `;
+}
+
+function renderDoctorAvailabilitySection(data) {
+  return `
+    <div class="section-stack">
+      ${Panel({
+        eyebrow: "Weekly schedule",
+        title: "Availability",
+        children: renderAvailabilityForm(data.profile)
+      })}
+    </div>
+  `;
+}
+
+function renderDoctorPaymentsSection(data) {
+  return `
+    <div class="section-stack">
+      ${Panel({
+        eyebrow: "Payments",
+        title: "Consultation payment status",
+        children: renderPaymentTable(data.bookings)
       })}
     </div>
   `;
@@ -189,7 +298,7 @@ function renderProfileForm(profile, user) {
 function renderAvailabilityForm(profile) {
   return `
     <form id="availabilityForm" class="availability-editor">
-      <p class="form-helper">Enter 24-hour slots separated by commas, semicolons, or new lines. Example: 09:00, 09:30, 10:00.</p>
+      <p class="form-helper">Use 24-hour times separated by commas, semicolons, or new lines.</p>
       ${WEEK_DAYS.map((day) => {
         const slots = (profile?.availability || []).find((item) => item.day === day)?.slots || [];
         return `
@@ -206,6 +315,105 @@ function renderAvailabilityForm(profile) {
   `;
 }
 
+function renderCompactBookings(bookings, emptyText) {
+  return CompactList({
+    items: bookings,
+    emptyText,
+    renderItem: (booking) => `
+      <div>
+        <strong>${escapeHtml(booking.patientName)}</strong>
+        <span>${escapeHtml(booking.date)} &middot; ${escapeHtml(booking.time || "Slot pending")}</span>
+      </div>
+      <span class="status-badge status-${escapeHtml(booking.status)}">${escapeHtml(booking.status)}</span>
+    `
+  });
+}
+
+function renderDoctorAlerts(profile, bookings) {
+  const pendingBookings = bookings.filter((booking) => booking.status === "pending").length;
+  const alerts = [];
+
+  if (!profile) {
+    alerts.push(["Profile draft", "Complete your profile before patients can book."]);
+  } else if (profile.rejectionReason) {
+    alerts.push(["Profile rejected", profile.rejectionReason]);
+  } else if (!profile.isApproved) {
+    alerts.push(["Approval pending", "Your profile is waiting for admin review."]);
+  } else if (profile.isActive === false) {
+    alerts.push(["Profile inactive", "Patients cannot book inactive profiles."]);
+  }
+
+  if (pendingBookings) {
+    alerts.push(["Pending appointments", `${pendingBookings} booking${pendingBookings === 1 ? "" : "s"} need a response.`]);
+  }
+
+  return CompactList({
+    items: alerts,
+    emptyText: "No items need attention.",
+    renderItem: ([title, detail]) => `
+      <div>
+        <strong>${escapeHtml(title)}</strong>
+        <span>${escapeHtml(detail)}</span>
+      </div>
+    `
+  });
+}
+
+function renderPatientTable(bookings) {
+  const patients = Array.from(
+    bookings.reduce((map, booking) => {
+      const patient = typeof booking.patientId === "object" && booking.patientId ? booking.patientId : null;
+      const key = patient?.id || patient?._id || normalizeBooking(booking).patientName;
+      const row = map.get(key) || {
+        name: patient?.name || "Patient",
+        email: patient?.email || "",
+        total: 0,
+        latest: "",
+        status: "pending"
+      };
+      const normalized = normalizeBooking(booking);
+      row.total += 1;
+      row.latest = normalized.date;
+      row.status = normalized.status;
+      map.set(key, row);
+      return map;
+    }, new Map()).values()
+  );
+
+  return DataTable({
+    columns: [
+      {
+        label: "Patient",
+        key: "name",
+        render: (row) => `
+          <strong>${escapeHtml(row.name)}</strong>
+          ${row.email ? `<span class="muted-cell">${escapeHtml(row.email)}</span>` : ""}
+        `
+      },
+      { label: "Bookings", key: "total" },
+      { label: "Latest visit", key: "latest" },
+      { label: "Status", key: "status", render: (row) => StatusBadge(row.status) }
+    ],
+    rows: patients,
+    emptyText: "No patient bookings yet."
+  });
+}
+
+function renderPaymentTable(bookings) {
+  const rows = bookings.map(normalizeBooking);
+
+  return DataTable({
+    columns: [
+      { label: "Patient", key: "patientName" },
+      { label: "Date", key: "date", render: (row) => `${escapeHtml(row.date)} <span class="muted-cell">${escapeHtml(row.time)}</span>` },
+      { label: "Appointment", key: "status", render: (row) => StatusBadge(row.status) },
+      { label: "Payment", key: "paymentStatus", render: (row) => StatusBadge(row.paymentStatus) }
+    ],
+    rows,
+    emptyText: "No payment records yet."
+  });
+}
+
 function renderDoctorBookingActions(row) {
   return `
     <div class="inline-actions">
@@ -216,7 +424,7 @@ function renderDoctorBookingActions(row) {
   `;
 }
 
-function bindDoctorActions(root, navigate, session) {
+function bindDoctorActions(root, navigate, session, section) {
   root.querySelector("#doctorProfileForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -227,7 +435,7 @@ function bindDoctorActions(root, navigate, session) {
         body: Object.fromEntries(form.entries())
       });
       toast("Profile saved for admin review.");
-      loadDoctorDashboard(root, navigate, session);
+      loadDoctorDashboard(root, navigate, session, section);
     } catch (error) {
       toast(error.message);
       if (error.status === 401) {
@@ -255,7 +463,7 @@ function bindDoctorActions(root, navigate, session) {
         body: { availability }
       });
       toast("Availability updated.");
-      loadDoctorDashboard(root, navigate, session);
+      loadDoctorDashboard(root, navigate, session, section);
     } catch (error) {
       toast(error.message);
       if (error.status === 401) {
@@ -277,7 +485,7 @@ function bindDoctorActions(root, navigate, session) {
           }
         });
         toast("Booking updated.");
-        loadDoctorDashboard(root, navigate, session);
+        loadDoctorDashboard(root, navigate, session, section);
       } catch (error) {
         toast(error.message);
         if (error.status === 401 || error.status === 403) {
@@ -288,9 +496,9 @@ function bindDoctorActions(root, navigate, session) {
   });
 }
 
-function bindRetry(root, navigate, session) {
+function bindRetry(root, navigate, session, section) {
   root.querySelector("[data-retry-load]")?.addEventListener("click", () => {
-    loadDoctorDashboard(root, navigate, session);
+    loadDoctorDashboard(root, navigate, session, section);
   });
 }
 
@@ -300,4 +508,26 @@ function profileStatusLabel(profile) {
   if (!profile.isActive) return "Inactive";
   if (profile.isApproved) return "Approved";
   return "Pending";
+}
+
+function getDoctorTitle(section) {
+  return {
+    appointments: "Appointments",
+    patients: "Patients",
+    profile: "Doctor Profile",
+    availability: "Availability",
+    payments: "Payments",
+    overview: "Doctor Overview"
+  }[section] || "Doctor Overview";
+}
+
+function getDoctorSubtitle(section) {
+  return {
+    appointments: "Review booking requests and update consultation status.",
+    patients: "See patients connected to your bookings.",
+    profile: "Maintain your onboarding profile and approval details.",
+    availability: "Set weekly slots patients can book.",
+    payments: "Review payment status for consultations.",
+    overview: "A focused view of profile status, upcoming consultations, and next actions."
+  }[section] || "A focused view of profile status, upcoming consultations, and next actions.";
 }
