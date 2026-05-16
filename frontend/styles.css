@@ -492,6 +492,13 @@ textarea {
   font-size: 0.86rem;
 }
 
+.empty-state {
+  display: grid;
+  gap: 0.35rem;
+  min-height: 4rem;
+  align-content: center;
+}
+
 .error-state {
   display: flex;
   align-items: center;
@@ -742,11 +749,36 @@ tr:last-child td {
 
 .doctor-profile-band {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.38fr);
+  grid-template-columns: auto minmax(0, 1fr) minmax(220px, 0.38fr);
   gap: 1rem;
   align-items: center;
   margin-bottom: 1rem;
   padding: 1rem;
+}
+
+.profile-band-avatar,
+.profile-photo-preview,
+.doctor-avatar {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--blue-soft);
+  color: var(--blue-strong);
+  font-weight: 950;
+}
+
+.profile-band-avatar {
+  width: 4.4rem;
+  height: 4.4rem;
+}
+
+.profile-band-avatar img,
+.profile-photo-preview img,
+.doctor-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .profile-summary {
@@ -804,6 +836,20 @@ tr:last-child td {
   gap: 0.75rem;
 }
 
+.doctor-identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.doctor-avatar {
+  width: 3.2rem;
+  height: 3.2rem;
+  flex: 0 0 auto;
+  border: 1px solid rgba(15, 124, 207, 0.16);
+}
+
 .availability-head p {
   margin: 0.25rem 0 0;
   color: var(--muted);
@@ -826,6 +872,10 @@ tr:last-child td {
 
 .doctor-card-meta strong {
   color: var(--text);
+}
+
+.doctor-card-meta.secondary {
+  background: #fff;
 }
 
 .doctor-bio {
@@ -921,6 +971,13 @@ tr:last-child td {
   margin-bottom: 1rem;
 }
 
+.booking-notes {
+  display: block;
+  max-width: 18rem;
+  color: #38586d;
+  line-height: 1.45;
+}
+
 .profile-form,
 .availability-editor {
   display: grid;
@@ -943,6 +1000,52 @@ tr:last-child td {
 .form-actions {
   display: flex;
   justify-content: flex-end;
+}
+
+.profile-photo-field {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #f8fcff;
+}
+
+.profile-photo-preview {
+  width: 5.2rem;
+  height: 5.2rem;
+  flex: 0 0 auto;
+  border: 1px solid rgba(15, 124, 207, 0.16);
+}
+
+.profile-photo-field label span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.profile-readiness {
+  display: grid;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+  padding: 0.85rem;
+  border: 1px solid rgba(201, 139, 31, 0.25);
+  border-radius: var(--radius);
+  background: #fffaf0;
+  color: #70501a;
+}
+
+.profile-readiness.complete {
+  border-color: rgba(24, 168, 123, 0.25);
+  background: #f0fbf7;
+  color: #087758;
+}
+
+.profile-readiness span {
+  color: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
 }
 
 .admin-action-stack {

@@ -16,7 +16,7 @@ const bookingPopulate = [
   {
     path: "doctorId",
     select:
-      "fullName email specialization qualification yearsOfExperience consultationFee clinicName clinicAddress bio languagesSpoken availability isApproved isActive rejectionReason"
+      "fullName email specialization qualification yearsOfExperience consultationFee profilePicture consultationMode consultationDuration hospitalAffiliation clinicName clinicAddress bio languagesSpoken availability isApproved isActive rejectionReason"
   }
 ];
 

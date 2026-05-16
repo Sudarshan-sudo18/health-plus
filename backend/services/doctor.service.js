@@ -20,6 +20,10 @@ export async function upsertOwnDoctorProfile(user, payload = {}) {
     qualification: cleanString(payload.qualification),
     yearsOfExperience: toNumber(payload.yearsOfExperience, "Years of experience is required."),
     consultationFee: toNumber(payload.consultationFee, "Consultation fee is required."),
+    profilePicture: normalizeImage(payload.profilePicture),
+    consultationMode: normalizeConsultationMode(payload.consultationMode),
+    consultationDuration: toOptionalNumber(payload.consultationDuration, 30),
+    hospitalAffiliation: cleanString(payload.hospitalAffiliation),
     clinicName: cleanString(payload.clinicName),
     clinicAddress: cleanString(payload.clinicAddress),
     bio: cleanString(payload.bio),
@@ -202,6 +206,10 @@ export function serializeDoctor(doctor, { publicView = false } = {}) {
     qualification: raw.qualification || "",
     yearsOfExperience: Number(raw.yearsOfExperience || 0),
     consultationFee: Number(raw.consultationFee || 0),
+    profilePicture: raw.profilePicture || "",
+    consultationMode: raw.consultationMode || "online",
+    consultationDuration: Number(raw.consultationDuration || 30),
+    hospitalAffiliation: raw.hospitalAffiliation || "",
     clinicName: raw.clinicName || "",
     clinicAddress: raw.clinicAddress || "",
     bio: raw.bio || "",
@@ -285,4 +293,31 @@ function toNumber(value, message) {
   }
 
   return number;
+}
+
+function toOptionalNumber(value, fallback) {
+  if (value === "" || value === null || value === undefined) {
+    return fallback;
+  }
+
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return fallback;
+  }
+
+  return number;
+}
+
+function normalizeConsultationMode(value) {
+  const mode = cleanString(value) || "online";
+  return ["online", "offline", "both"].includes(mode) ? mode : "online";
+}
+
+function normalizeImage(value) {
+  const image = cleanString(value);
+  if (image && !image.startsWith("data:image/")) {
+    throw createHttpError(400, "Profile picture must be an image.");
+  }
+  return image;
 }

@@ -1,4 +1,5 @@
 import { AppLayout, getActiveSection } from "/components/layout.js";
+import { bindProfilePhotoInputs, PatientProfileForm } from "/components/profile.js";
 import {
   BookingTable,
   CompactList,
@@ -15,7 +16,7 @@ import {
 } from "/components/ui.js";
 import { apiFetch } from "/services/api.js";
 
-const PATIENT_SECTIONS = ["overview", "doctors", "appointments", "payments"];
+const PATIENT_SECTIONS = ["overview", "doctors", "appointments", "payments", "profile"];
 
 export const PatientDashboard = {
   title: "Health Plus | Patient",
@@ -40,14 +41,16 @@ async function loadPatientDashboard(root, navigate, section, selectedDate = getS
   content.innerHTML = LoadingState("Loading patient workspace...");
 
   try {
-    const [doctorData, bookingData] = await Promise.all([
+    const [doctorData, bookingData, profileData] = await Promise.all([
       apiFetch(`/api/doctors/public?date=${encodeURIComponent(selectedDate)}`),
-      apiFetch("/api/bookings/my")
+      apiFetch("/api/bookings/my"),
+      apiFetch("/api/profile/me")
     ]);
 
     content.innerHTML = renderPatientData({
       doctors: doctorData.doctors || [],
       bookings: bookingData.bookings || [],
+      profileResult: profileData,
       selectedDate,
       section
     });
@@ -76,7 +79,7 @@ function renderPatientData(data) {
       ${MetricCard({ icon: "icon-shield", label: "Approved doctors", value: String(data.doctors.length), note: "Available providers" })}
       ${MetricCard({ icon: "icon-calendar", label: "Open slots", value: String(openSlotCount), note: "Selected date" })}
       ${MetricCard({ icon: "icon-video", label: "Active bookings", value: String(activeBookings), note: "Pending or confirmed" })}
-      ${MetricCard({ icon: "icon-prescription", label: "Visit history", value: String(data.bookings.length), note: "Saved bookings" })}
+      ${MetricCard({ icon: "icon-prescription", label: "Profile", value: data.profileResult?.isProfileComplete ? "Complete" : "Incomplete", note: "Care details" })}
     </section>
   `;
 
@@ -90,6 +93,10 @@ function renderPatientData(data) {
 
   if (data.section === "payments") {
     return renderPatientPaymentsSection(data);
+  }
+
+  if (data.section === "profile") {
+    return renderPatientProfileSection(data);
   }
 
   return renderPatientOverview(data, metrics, openSlotCount);
@@ -110,6 +117,7 @@ function renderPatientOverview(data, metrics, openSlotCount) {
           children: QuickActionGrid([
             { href: "/patient?section=doctors", icon: "icon-calendar", label: "Book appointment", note: "Find open slots" },
             { href: "/patient?section=appointments", icon: "icon-video", label: "View bookings", note: "Manage upcoming care" },
+            { href: "/patient?section=profile", icon: "icon-shield", label: "Complete profile", note: "Keep care details ready" },
             { href: "/patient?section=payments", icon: "icon-wallet", label: "Payment status", note: "Review consultation status" }
           ])
         })}
@@ -124,17 +132,41 @@ function renderPatientOverview(data, metrics, openSlotCount) {
           children: renderCompactBookings(recent, "No booking activity yet.")
         })}
         ${Panel({
-          eyebrow: "Availability",
-          title: "Care status",
+          eyebrow: "Profile",
+          title: "Care readiness",
           children: `
             <div class="status-summary">
-              <strong>${escapeHtml(openSlotCount ? `${openSlotCount} open slots` : "No open slots today")}</strong>
-              <span>${escapeHtml(openSlotCount ? "Choose a doctor and confirm a time." : "Try another date or check again later.")}</span>
-              <a class="small-button" href="/patient?section=doctors" data-link>Find doctors</a>
+              <strong>${escapeHtml(data.profileResult?.isProfileComplete ? "Profile ready" : "Profile incomplete")}</strong>
+              <span>${escapeHtml(data.profileResult?.isProfileComplete ? "Your care details are saved." : "Complete your profile before your next consultation.")}</span>
+              <a class="small-button" href="/patient?section=profile" data-link>Open profile</a>
             </div>
           `
         })}
       </div>
+    </div>
+  `;
+}
+
+function renderPatientProfileSection(data) {
+  return `
+    <div class="section-stack">
+      ${Panel({
+        eyebrow: "Private profile",
+        title: "Patient details",
+        children: `
+          ${renderProfileReadiness(data.profileResult)}
+          ${PatientProfileForm(data.profileResult?.profile || {}, data.profileResult?.user || {})}
+        `
+      })}
+    </div>
+  `;
+}
+
+function renderProfileReadiness(profileResult) {
+  return `
+    <div class="profile-readiness ${profileResult?.isProfileComplete ? "complete" : "incomplete"}">
+      <strong>${profileResult?.isProfileComplete ? "Profile complete" : "First login setup"}</strong>
+      <span>${profileResult?.isProfileComplete ? "Your details can be updated anytime." : "Add your basic care details to support smoother consultations."}</span>
     </div>
   `;
 }
@@ -222,6 +254,27 @@ function renderCompactBookings(bookings, emptyText) {
 }
 
 function bindPatientActions(root, navigate, section) {
+  bindProfilePhotoInputs(root);
+
+  root.querySelector("#patientProfileForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+
+    try {
+      await apiFetch("/api/profile/me", {
+        method: "PATCH",
+        body: Object.fromEntries(form.entries())
+      });
+      toast("Profile saved.");
+      loadPatientDashboard(root, navigate, "profile");
+    } catch (error) {
+      toast(error.message || "Profile could not be saved.");
+      if (error.status === 401 || error.status === 403) {
+        navigate("/login");
+      }
+    }
+  });
+
   const bookingDate = root.querySelector("#bookingDate");
   bookingDate?.addEventListener("change", () => {
     loadPatientDashboard(root, navigate, "doctors", bookingDate.value || formatDateInputValue());
@@ -305,6 +358,7 @@ function getPatientTitle(section) {
     doctors: "Find a Doctor",
     appointments: "Appointments",
     payments: "Payments",
+    profile: "Patient Profile",
     overview: "Patient Overview"
   }[section] || "Patient Overview";
 }
@@ -314,6 +368,7 @@ function getPatientSubtitle(section) {
     doctors: "Choose a date, select an available slot, and share consultation notes.",
     appointments: "Review and manage your Health Plus bookings.",
     payments: "Track payment status for your consultations.",
+    profile: "Keep your private care details up to date.",
     overview: "A focused view of care activity, upcoming visits, and next actions."
   }[section] || "A focused view of care activity, upcoming visits, and next actions.";
 }

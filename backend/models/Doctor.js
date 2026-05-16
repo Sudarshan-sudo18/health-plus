@@ -80,6 +80,29 @@ const doctorSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
+  profilePicture: {
+    type: String,
+    trim: true,
+    maxlength: 500000,
+    default: ""
+  },
+  consultationMode: {
+    type: String,
+    enum: ["online", "offline", "both"],
+    default: "online"
+  },
+  consultationDuration: {
+    type: Number,
+    min: 5,
+    max: 240,
+    default: 30
+  },
+  hospitalAffiliation: {
+    type: String,
+    trim: true,
+    maxlength: 180,
+    default: ""
+  },
   clinicName: {
     type: String,
     required: true,

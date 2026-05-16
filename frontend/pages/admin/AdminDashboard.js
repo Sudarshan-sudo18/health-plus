@@ -1,4 +1,5 @@
 import { AppLayout, getActiveSection } from "/components/layout.js";
+import { AdminProfileForm, bindProfilePhotoInputs, SupportSettingsForm } from "/components/profile.js";
 import {
   BookingTable,
   CompactList,
@@ -15,8 +16,9 @@ import {
   toast
 } from "/components/ui.js";
 import { apiFetch } from "/services/api.js";
+import { cacheSupportSettings } from "/services/support.js";
 
-const ADMIN_SECTIONS = ["overview", "doctors", "appointments", "payments"];
+const ADMIN_SECTIONS = ["overview", "doctors", "appointments", "payments", "profile", "settings"];
 
 export const AdminDashboard = {
   title: "Health Plus | Admin",
@@ -41,14 +43,18 @@ async function loadAdminDashboard(root, navigate, section) {
   content.innerHTML = LoadingState("Loading admin workspace...");
 
   try {
-    const [doctorData, bookingData] = await Promise.all([
+    const [doctorData, bookingData, profileData, supportData] = await Promise.all([
       apiFetch("/api/admin/doctors"),
-      apiFetch("/api/admin/bookings")
+      apiFetch("/api/admin/bookings"),
+      apiFetch("/api/profile/me"),
+      apiFetch("/api/support", { auth: false })
     ]);
 
     content.innerHTML = renderAdminData({
       doctors: doctorData.doctors || [],
       bookings: bookingData.bookings || [],
+      profileResult: profileData,
+      supportSettings: supportData.supportSettings,
       section
     });
     bindAdminActions(root, navigate, section);
@@ -75,7 +81,8 @@ function renderAdminData(data) {
       ${MetricCard({ icon: "icon-shield", label: "Active doctors", value: String(activeDoctors), note: "Approved and visible" })}
       ${MetricCard({ icon: "icon-user", label: "Pending review", value: String(pendingDoctors), note: "Awaiting admin action" })}
       ${MetricCard({ icon: "icon-calendar", label: "Active bookings", value: String(activeBookings), note: "Not cancelled" })}
-      ${MetricCard({ icon: "icon-report", label: "Payment pending", value: String(unpaidBookings), note: "Can be waived by admin" })}
+      ${MetricCard({ icon: "icon-wallet", label: "Payment pending", value: String(unpaidBookings), note: "Can be waived by admin" })}
+      ${MetricCard({ icon: "icon-report", label: "Admin profile", value: data.profileResult?.isProfileComplete ? "Complete" : "Incomplete", note: "Operations contact" })}
     </section>
   `;
 
@@ -89,6 +96,14 @@ function renderAdminData(data) {
 
   if (data.section === "payments") {
     return renderAdminPaymentsSection(data);
+  }
+
+  if (data.section === "profile") {
+    return renderAdminProfileSection(data);
+  }
+
+  if (data.section === "settings") {
+    return renderAdminSettingsSection(data);
   }
 
   return renderAdminOverview(data, metrics);
@@ -108,7 +123,8 @@ function renderAdminOverview(data, metrics) {
           children: QuickActionGrid([
             { href: "/admin?section=doctors", icon: "icon-user", label: "Review doctors", note: "Approve or reject profiles" },
             { href: "/admin?section=appointments", icon: "icon-calendar", label: "Manage bookings", note: "Cancel when needed" },
-            { href: "/admin?section=payments", icon: "icon-wallet", label: "Payment queue", note: "Review pending payments" }
+            { href: "/admin?section=payments", icon: "icon-wallet", label: "Payment queue", note: "Review pending payments" },
+            { href: "/admin?section=settings", icon: "icon-mail", label: "Support settings", note: "Update public contact details" }
           ])
         })}
         ${Panel({
@@ -127,6 +143,42 @@ function renderAdminOverview(data, metrics) {
           children: renderAdminAlerts(data)
         })}
       </div>
+    </div>
+  `;
+}
+
+function renderAdminProfileSection(data) {
+  return `
+    <div class="section-stack">
+      ${Panel({
+        eyebrow: "Private profile",
+        title: "Admin details",
+        children: `
+          ${renderProfileReadiness(data.profileResult)}
+          ${AdminProfileForm(data.profileResult?.profile || {}, data.profileResult?.user || {})}
+        `
+      })}
+    </div>
+  `;
+}
+
+function renderAdminSettingsSection(data) {
+  return `
+    <div class="section-stack">
+      ${Panel({
+        eyebrow: "Support",
+        title: "Customer care settings",
+        children: SupportSettingsForm(data.supportSettings || {})
+      })}
+    </div>
+  `;
+}
+
+function renderProfileReadiness(profileResult) {
+  return `
+    <div class="profile-readiness ${profileResult?.isProfileComplete ? "complete" : "incomplete"}">
+      <strong>${profileResult?.isProfileComplete ? "Profile complete" : "Profile incomplete"}</strong>
+      <span>${profileResult?.isProfileComplete ? "Your admin details are saved." : "Add admin contact details for platform operations."}</span>
     </div>
   `;
 }
@@ -221,6 +273,10 @@ function renderAdminAlerts(data) {
     alerts.push(["Payment queue", `${pendingPayments} booking${pendingPayments === 1 ? "" : "s"} pending.`]);
   }
 
+  if (!data.profileResult?.isProfileComplete) {
+    alerts.push(["Admin profile", "Complete your profile for operational continuity."]);
+  }
+
   return CompactList({
     items: alerts,
     emptyText: "No platform alerts.",
@@ -310,6 +366,36 @@ function renderAdminPaymentTable(bookings) {
 }
 
 function bindAdminActions(root, navigate, section) {
+  bindProfilePhotoInputs(root);
+
+  root.querySelector("#adminProfileForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+
+    await runAdminAction(root, navigate, "profile", async () => {
+      await apiFetch("/api/profile/me", {
+        method: "PATCH",
+        body: Object.fromEntries(form.entries())
+      });
+      toast("Profile saved.");
+    });
+  });
+
+  root.querySelector("#supportSettingsForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+
+    await runAdminAction(root, navigate, "settings", async () => {
+      const response = await apiFetch("/api/admin/support", {
+        method: "PATCH",
+        body: Object.fromEntries(form.entries())
+      });
+      const settings = cacheSupportSettings(response.supportSettings);
+      updateFooterSupport(root, settings);
+      toast("Support settings saved.");
+    });
+  });
+
   root.querySelectorAll("[data-approve-doctor]").forEach((button) => {
     button.addEventListener("click", async () => {
       await runAdminAction(root, navigate, section, async () => {
@@ -420,11 +506,28 @@ function cssEscape(value) {
   return String(value).replaceAll('"', '\\"');
 }
 
+function updateFooterSupport(root, settings) {
+  const emailLink = root.querySelector("[data-support-email]");
+  const phoneLine = root.querySelector("[data-support-phone]");
+
+  if (emailLink) {
+    emailLink.href = `mailto:${settings.supportEmail}`;
+    const value = emailLink.querySelector("strong");
+    if (value) value.textContent = settings.supportEmail;
+  }
+
+  if (phoneLine) {
+    phoneLine.textContent = [settings.supportPhone, settings.supportTiming].filter(Boolean).join(" | ");
+  }
+}
+
 function getAdminTitle(section) {
   return {
     doctors: "Doctor Approvals",
     appointments: "Appointments",
     payments: "Payments",
+    profile: "Admin Profile",
+    settings: "Support Settings",
     overview: "Admin Overview"
   }[section] || "Admin Overview";
 }
@@ -434,6 +537,8 @@ function getAdminSubtitle(section) {
     doctors: "Review provider profiles and control approval status.",
     appointments: "Monitor platform bookings and cancel when required.",
     payments: "Review payment status and waive fees when approved.",
+    profile: "Manage your private admin details.",
+    settings: "Update customer support details shown across Health Plus.",
     overview: "A focused view of approvals, bookings, payments, and alerts."
   }[section] || "A focused view of approvals, bookings, payments, and alerts.";
 }

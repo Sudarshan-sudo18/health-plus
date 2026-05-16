@@ -1,7 +1,6 @@
 import { getDashboardForRole, getRoleFromPath, getSession, logout } from "/auth/auth.js";
 import { navigate } from "/router.js";
-
-export const CUSTOMER_SUPPORT_EMAIL = "care@healthplus.example";
+import { getCachedSupportSettings, refreshSupportSettings } from "/services/support.js";
 
 const DEFAULT_SECTION = "overview";
 
@@ -10,7 +9,9 @@ const roleSections = {
     ["overview", "Overview", "icon-report"],
     ["doctors", "Doctors", "icon-user"],
     ["appointments", "Appointments", "icon-calendar"],
-    ["payments", "Payments", "icon-wallet"]
+    ["payments", "Payments", "icon-wallet"],
+    ["profile", "Profile", "icon-shield"],
+    ["settings", "Settings", "icon-mail"]
   ],
   doctor: [
     ["overview", "Overview", "icon-report"],
@@ -24,7 +25,8 @@ const roleSections = {
     ["overview", "Overview", "icon-report"],
     ["doctors", "Doctors", "icon-user"],
     ["appointments", "Appointments", "icon-calendar"],
-    ["payments", "Payments", "icon-wallet"]
+    ["payments", "Payments", "icon-wallet"],
+    ["profile", "Profile", "icon-shield"]
   ]
 };
 
@@ -36,6 +38,7 @@ export function AppLayout({ title, subtitle, activePath, activeSection = DEFAULT
   const roleLabel = user ? sentenceCase(user.role) : "Guest";
   const userName = user?.name || user?.email || "Health Plus user";
   const section = getSectionMeta(user?.role, activeSection);
+  const supportSettings = getCachedSupportSettings();
 
   return `
     <div class="app-frame dashboard-app">
@@ -108,10 +111,11 @@ export function AppLayout({ title, subtitle, activePath, activeSection = DEFAULT
           </div>
           <div class="footer-support">
             <span>Customer support</span>
-            <a class="support-line" href="mailto:${CUSTOMER_SUPPORT_EMAIL}">
+            <a class="support-line" href="mailto:${escapeHtml(supportSettings.supportEmail)}" data-support-email>
               <svg><use href="#icon-mail"></use></svg>
-              <strong>${CUSTOMER_SUPPORT_EMAIL}</strong>
+              <strong>${escapeHtml(supportSettings.supportEmail)}</strong>
             </a>
+            <small data-support-phone>${escapeHtml(formatSupportLine(supportSettings))}</small>
           </div>
         </footer>
       </div>
@@ -132,6 +136,29 @@ export function bindLayoutActions(root) {
       navigate("/login");
     });
   }
+
+  refreshSupportSettings()
+    .then((settings) => updateFooterSupport(root, settings))
+    .catch(() => {});
+}
+
+function updateFooterSupport(root, settings) {
+  const emailLink = root.querySelector("[data-support-email]");
+  const phoneLine = root.querySelector("[data-support-phone]");
+
+  if (emailLink) {
+    emailLink.href = `mailto:${settings.supportEmail}`;
+    const value = emailLink.querySelector("strong");
+    if (value) value.textContent = settings.supportEmail;
+  }
+
+  if (phoneLine) {
+    phoneLine.textContent = formatSupportLine(settings);
+  }
+}
+
+function formatSupportLine(settings) {
+  return [settings.supportPhone, settings.supportTiming].filter(Boolean).join(" | ");
 }
 
 function roleNav(role, activePath, activeSection) {

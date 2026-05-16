@@ -9,6 +9,7 @@ import {
   rejectAdminDoctor,
   waiveAdminBookingPayment
 } from "../controllers/admin.controller.js";
+import { updateSupportSettings } from "../controllers/support.controller.js";
 import { requireAuth } from "../middleware/auth.js";
 import { adminOnly } from "../middleware/roles.js";
 
@@ -25,3 +26,5 @@ adminRouter.delete("/doctors/:id", deleteAdminDoctor);
 adminRouter.get("/bookings", getAdminBookings);
 adminRouter.patch("/bookings/:id/cancel", cancelAdminBooking);
 adminRouter.patch("/bookings/:id/waive-payment", waiveAdminBookingPayment);
+
+adminRouter.patch("/support", updateSupportSettings);

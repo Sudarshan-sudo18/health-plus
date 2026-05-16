@@ -1,4 +1,5 @@
 import { AppLayout, getActiveSection } from "/components/layout.js";
+import { bindProfilePhotoInputs, ProfilePhotoInput, renderAvatar } from "/components/profile.js";
 import {
   BookingTable,
   CompactList,
@@ -216,6 +217,7 @@ function renderProfileStatus(profile) {
   if (!profile) {
     return `
       <section class="doctor-profile-band">
+        <div class="profile-band-avatar"><span>DR</span></div>
         <div>
           <p class="eyebrow">Onboarding required</p>
           <h2>Create your doctor profile</h2>
@@ -230,6 +232,7 @@ function renderProfileStatus(profile) {
 
   return `
     <section class="doctor-profile-band">
+      <div class="profile-band-avatar">${renderAvatar(profile.profilePicture || "", profile.fullName || "DR")}</div>
       <div>
         <p class="eyebrow">${escapeHtml(profile.specialization)}</p>
         <h2>${escapeHtml(profile.fullName)}</h2>
@@ -248,6 +251,7 @@ function renderProfileForm(profile, user) {
 
   return `
     <form id="doctorProfileForm" class="profile-form">
+      ${ProfilePhotoInput({ value: profile?.profilePicture || "", helper: "Shown on patient doctor cards after approval." })}
       <label>
         Full name
         <input name="fullName" required minlength="2" value="${escapeHtml(profile?.fullName || user?.name || "")}">
@@ -273,6 +277,20 @@ function renderProfileForm(profile, user) {
         <input name="consultationFee" type="number" min="0" step="0.01" required value="${escapeHtml(profile?.consultationFee ?? "")}">
       </label>
       <label>
+        Consultation mode
+        <select name="consultationMode" required>
+          ${["online", "offline", "both"].map((mode) => `<option value="${mode}" ${profile?.consultationMode === mode ? "selected" : ""}>${escapeHtml(formatConsultationMode(mode))}</option>`).join("")}
+        </select>
+      </label>
+      <label>
+        Consultation duration
+        <input name="consultationDuration" type="number" min="5" max="240" required value="${escapeHtml(profile?.consultationDuration ?? 30)}">
+      </label>
+      <label class="profile-form-wide">
+        Hospital affiliation
+        <input name="hospitalAffiliation" value="${escapeHtml(profile?.hospitalAffiliation || "")}">
+      </label>
+      <label>
         Clinic name
         <input name="clinicName" required minlength="2" value="${escapeHtml(profile?.clinicName || "")}">
       </label>
@@ -285,7 +303,7 @@ function renderProfileForm(profile, user) {
         <input name="languagesSpoken" required value="${escapeHtml(languages)}">
       </label>
       <label class="profile-form-wide">
-        Bio
+        About
         <textarea name="bio" rows="5" minlength="20" maxlength="1200" required>${escapeHtml(profile?.bio || "")}</textarea>
       </label>
       <div class="form-actions profile-form-wide">
@@ -425,6 +443,8 @@ function renderDoctorBookingActions(row) {
 }
 
 function bindDoctorActions(root, navigate, session, section) {
+  bindProfilePhotoInputs(root);
+
   root.querySelector("#doctorProfileForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -530,4 +550,12 @@ function getDoctorSubtitle(section) {
     payments: "Review payment status for consultations.",
     overview: "A focused view of profile status, upcoming consultations, and next actions."
   }[section] || "A focused view of profile status, upcoming consultations, and next actions.";
+}
+
+function formatConsultationMode(mode) {
+  return {
+    online: "Online",
+    offline: "Offline",
+    both: "Online and offline"
+  }[mode] || "Online";
 }

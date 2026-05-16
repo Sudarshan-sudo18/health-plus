@@ -110,10 +110,13 @@ export function DoctorAvailabilityCard({ doctor, selectedDate, mode = "patient" 
   return `
     <article class="availability-card" data-doctor-card="${escapeHtml(doctorId)}">
       <div class="availability-head">
-        <div>
-          <span class="eyebrow">${escapeHtml(specialization)}</span>
-          <h3>${escapeHtml(fullName)}</h3>
-          ${doctor.email ? `<p>${escapeHtml(doctor.email)}</p>` : ""}
+        <div class="doctor-identity">
+          ${DoctorAvatar(doctor.profilePicture, fullName)}
+          <div>
+            <span class="eyebrow">${escapeHtml(specialization)}</span>
+            <h3>${escapeHtml(fullName)}</h3>
+            ${doctor.email ? `<p>${escapeHtml(doctor.email)}</p>` : ""}
+          </div>
         </div>
         ${mode === "admin" ? StatusBadge(doctor.rejectionReason ? "rejected" : isActive ? (isApproved ? "approved" : "pending") : "inactive") : ""}
       </div>
@@ -122,6 +125,12 @@ export function DoctorAvailabilityCard({ doctor, selectedDate, mode = "patient" 
         <span>${escapeHtml(doctor.qualification || "Qualification pending")}</span>
         <span>${escapeHtml(String(doctor.yearsOfExperience ?? 0))} years</span>
         <strong>${escapeHtml(formatCurrency(doctor.consultationFee || 0))}</strong>
+      </div>
+
+      <div class="doctor-card-meta secondary">
+        <span>${escapeHtml(formatConsultationMode(doctor.consultationMode))}</span>
+        <span>${escapeHtml(String(doctor.consultationDuration || 30))} min</span>
+        <strong>${escapeHtml(doctor.hospitalAffiliation || doctor.clinicName || "Independent practice")}</strong>
       </div>
 
       ${doctor.bio ? `<p class="doctor-bio">${escapeHtml(doctor.bio)}</p>` : ""}
@@ -177,6 +186,14 @@ export function BookingTable({ bookings, perspective = "patient", actions }) {
     { label: "Payment", key: "paymentStatus", render: (row) => StatusBadge(row.paymentStatus) }
   );
 
+  if (perspective !== "patient") {
+    columns.push({
+      label: "Notes",
+      key: "notes",
+      render: (row) => `<span class="booking-notes">${escapeHtml(row.notes || "No notes shared.")}</span>`
+    });
+  }
+
   if (actions) {
     columns.push({ label: "Action", key: "id", render: actions });
   }
@@ -186,6 +203,19 @@ export function BookingTable({ bookings, perspective = "patient", actions }) {
     rows,
     emptyText: "No bookings found."
   });
+}
+
+export function DoctorAvatar(image, name = "Doctor") {
+  const initials = String(name || "Doctor")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || "")
+    .join("") || "DR";
+
+  return image
+    ? `<span class="doctor-avatar"><img src="${escapeHtml(image)}" alt=""></span>`
+    : `<span class="doctor-avatar">${escapeHtml(initials)}</span>`;
 }
 
 export function DoctorCard(doctor) {
@@ -281,6 +311,14 @@ export function formatCurrency(value, currency = "USD") {
 
 function formatFee(doctor) {
   return formatCurrency(doctor.fee ?? doctor.consultationFee ?? 0, doctor.currency || "USD");
+}
+
+function formatConsultationMode(mode) {
+  return {
+    online: "Online",
+    offline: "Offline",
+    both: "Online and offline"
+  }[mode] || "Online";
 }
 
 function renderSlotButton({ doctorId, slot, mode, disabled }) {
