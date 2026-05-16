@@ -13,15 +13,15 @@ export const SignupPage = {
               <span class="brand-name">Health Plus</span>
             </a>
             <p class="eyebrow">Create account</p>
-            <h1>Join Health Plus with a persistent account.</h1>
+            <h1>Create your Health Plus care account.</h1>
             <p class="lead">
-              Your account is saved in MongoDB, passwords are hashed with bcrypt,
-              and your role controls which dashboard you can access.
+              Use one secure account to access care, manage appointments, or
+              support patients as a verified medical professional.
             </p>
             <div class="metric-grid">
-              ${MetricCard({ icon: "icon-shield", label: "Admin", value: "/admin", note: "Manage platform data" })}
-              ${MetricCard({ icon: "icon-video", label: "Doctor", value: "/doctor", note: "View appointments" })}
-              ${MetricCard({ icon: "icon-prescription", label: "Patient", value: "/patient", note: "Book care" })}
+              ${MetricCard({ icon: "icon-shield", label: "Admin", value: "/admin", note: "Manage operations" })}
+              ${MetricCard({ icon: "icon-video", label: "Doctor", value: "/doctor", note: "Coordinate consultations" })}
+              ${MetricCard({ icon: "icon-prescription", label: "Patient", value: "/patient", note: "Book virtual care" })}
             </div>
           </div>
           <aside class="auth-card">
@@ -48,6 +48,10 @@ export const SignupPage = {
                 Password
                 <input name="password" type="password" required minlength="8" placeholder="At least 8 characters">
               </label>
+              <label class="consent-check signup-consent">
+                <input name="termsAccepted" type="checkbox" required>
+                <span>I accept the Health Plus terms and care advisory.</span>
+              </label>
               <button class="primary-button" type="submit">Create Account</button>
             </form>
             <div class="auth-switch">
@@ -69,7 +73,8 @@ export const SignupPage = {
           name: data.get("name"),
           role: data.get("role"),
           email: data.get("email"),
-          password: data.get("password")
+          password: data.get("password"),
+          termsAccepted: data.get("termsAccepted") === "on"
         });
         toast("Account created. Please log in.");
         navigate("/login");

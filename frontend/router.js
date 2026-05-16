@@ -1,5 +1,6 @@
-import { canAccess, getDashboardForRole, getSession, logout, refreshMe } from "/auth/auth.js";
+import { acceptTerms, getAccessToken, getDashboardForRole, getSession, logout, refreshMe } from "/auth/auth.js";
 import { bindLayoutActions } from "/components/layout.js";
+import { bindTermsConsent, TermsConsentModal } from "/components/terms.js";
 import { toast } from "/components/ui.js";
 import { LoginPage } from "/pages/LoginPage.js";
 import { SignupPage } from "/pages/SignupPage.js";
@@ -26,7 +27,8 @@ export function startRouter(root) {
 }
 
 export function navigate(path) {
-  if (window.location.pathname !== path) {
+  const currentPath = `${window.location.pathname}${window.location.search}`;
+  if (currentPath !== path) {
     window.history.pushState({}, "", path);
   }
   renderRoute();
@@ -34,55 +36,123 @@ export function navigate(path) {
 
 export async function renderRoute() {
   const route = findRoute(window.location.pathname);
-  const session = getSession();
 
   if (!route) {
-    navigate("/login");
+    replaceRoute("/login");
     return;
   }
 
-  if (!route.public && !canAccess(route.path, session)) {
-    const denied = encodeURIComponent(route.path);
-    window.history.replaceState({}, "", `/login?denied=${denied}`);
-  }
-
-  const nextRoute = findRoute(window.location.pathname) || routes[1];
   let activeSession = getSession();
 
-  if (nextRoute.public && activeSession && window.location.pathname === "/") {
-    navigate(getDashboardForRole(activeSession.role));
+  if (route.public) {
+    if (route.path === "/" && activeSession && getAccessToken()) {
+      appRoot.innerHTML = renderAuthLoading("Opening your workspace...");
+      try {
+        activeSession = await refreshMe();
+        navigate(getDashboardForRole(activeSession.role));
+      } catch {
+        logout();
+        navigate("/login");
+      }
+      return;
+    }
+
+    renderPage(route, activeSession);
     return;
   }
 
-  if (!nextRoute.public) {
-    try {
-      activeSession = await refreshMe();
-    } catch {
-      logout();
-      toast("Please log in again.");
-      navigate("/login");
-      return;
-    }
+  appRoot.innerHTML = renderAuthLoading("Checking your access...");
+  document.title = "Health Plus";
+
+  if (!activeSession || !getAccessToken()) {
+    const denied = encodeURIComponent(route.path);
+    replaceRoute(`/login?denied=${denied}`);
+    return;
   }
 
+  try {
+    activeSession = await refreshMe();
+  } catch {
+    logout();
+    toast("Please log in again.");
+    replaceRoute("/login");
+    return;
+  }
+
+  if (route.role && activeSession.role !== route.role) {
+    replaceRoute(getDashboardForRole(activeSession.role));
+    return;
+  }
+
+  renderPage(route, activeSession);
+  maybeBlockForTerms(activeSession);
+}
+
+function renderPage(route, activeSession) {
   const context = {
     navigate,
     session: activeSession,
-    path: nextRoute.path,
+    path: route.path,
     query: new URLSearchParams(window.location.search)
   };
 
-  appRoot.innerHTML = nextRoute.page.render(context);
+  appRoot.innerHTML = route.page.render(context);
   bindLayoutActions(appRoot);
-  if (nextRoute.page.afterRender) {
-    nextRoute.page.afterRender(context, appRoot);
+  if (route.page.afterRender) {
+    route.page.afterRender(context, appRoot);
   }
-  document.title = nextRoute.page.title || "Health Plus";
+  document.title = route.page.title || "Health Plus";
 }
 
 function findRoute(pathname) {
   const normalized = pathname.replace(/\/$/, "") || "/";
   return routes.find((route) => route.path === normalized);
+}
+
+function replaceRoute(path) {
+  const currentPath = `${window.location.pathname}${window.location.search}`;
+  if (currentPath === path) {
+    return;
+  }
+  window.history.replaceState({}, "", path);
+  renderRoute();
+}
+
+function renderAuthLoading(message) {
+  return `
+    <div class="auth-check-page">
+      <section class="loading-panel" aria-live="polite">
+        <div class="loading-state">
+          <span class="spinner" aria-hidden="true"></span>
+          <strong>${message}</strong>
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function maybeBlockForTerms(session) {
+  if (!session?.user || session.user.termsAccepted === true || appRoot.querySelector("#termsConsentForm")) {
+    return;
+  }
+
+  const dashboardFrame = appRoot.querySelector(".dashboard-app");
+  if (dashboardFrame) {
+    dashboardFrame.setAttribute("inert", "");
+    dashboardFrame.setAttribute("aria-hidden", "true");
+  }
+
+  appRoot.insertAdjacentHTML("beforeend", TermsConsentModal(session.user));
+  bindTermsConsent(appRoot, async () => {
+    try {
+      await acceptTerms();
+      toast("Terms accepted. Welcome back.");
+      renderRoute();
+    } catch (error) {
+      toast(error.message || "Could not save your acceptance. Please try again.");
+      throw error;
+    }
+  });
 }
 
 function handleDocumentClick(event) {
@@ -91,5 +161,5 @@ function handleDocumentClick(event) {
   const url = new URL(link.href, window.location.origin);
   if (url.origin !== window.location.origin) return;
   event.preventDefault();
-  navigate(url.pathname);
+  navigate(`${url.pathname}${url.search}`);
 }

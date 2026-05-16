@@ -29,7 +29,7 @@ export function AppLayout({ title, subtitle, activePath, children }) {
         <div class="sidebar-card">
           <span class="eyebrow">${escapeHtml(roleLabel)} access</span>
           <strong>${escapeHtml(roleSummary(user?.role))}</strong>
-          <small>Authenticated requests use your saved JWT session.</small>
+          <small>Your workspace is verified before care tools open.</small>
         </div>
 
         <div class="sidebar-account">

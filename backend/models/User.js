@@ -24,6 +24,14 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
       enum: ["admin", "doctor", "patient"]
+    },
+    termsAccepted: {
+      type: Boolean,
+      default: false
+    },
+    termsAcceptedAt: {
+      type: Date,
+      default: null
     }
   },
   { timestamps: true }

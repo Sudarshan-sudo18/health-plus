@@ -7,7 +7,7 @@ export const LoginPage = {
     const session = getSession();
     const deniedPath = query.get("denied");
     const deniedNotice = deniedPath
-      ? `<div class="notice danger">That route is protected. Sign in with the correct role to access ${escapeHtml(deniedPath)}.</div>`
+      ? `<div class="notice danger">Please sign in with the right account to access ${escapeHtml(deniedPath)}.</div>`
       : "";
 
     return `
@@ -18,11 +18,11 @@ export const LoginPage = {
               <span class="brand-mark" aria-hidden="true"><span></span></span>
               <span class="brand-name">Health Plus</span>
             </a>
-            <p class="eyebrow">Database-backed access</p>
+            <p class="eyebrow">Secure access</p>
             <h1>Sign in with your Health Plus account.</h1>
             <p class="lead">
-              The frontend calls the Express backend, stores the JWT access token,
-              and attaches it to protected admin, doctor, and patient dashboard requests.
+              Continue to your dedicated workspace for virtual consultations,
+              appointment management, and care coordination.
             </p>
             <div class="metric-grid">
               ${MetricCard({ icon: "icon-shield", label: "Admin", value: "/admin", note: "Users, appointments, reports" })}
@@ -32,7 +32,7 @@ export const LoginPage = {
           </div>
           <aside class="auth-card">
             ${deniedNotice}
-            ${session ? `<div class="notice">Current token session: ${escapeHtml(session.email)} as ${escapeHtml(session.role)}.</div>` : ""}
+            ${session ? `<div class="notice">Signed in as ${escapeHtml(session.email)} with ${escapeHtml(session.role)} access.</div>` : ""}
             <form id="loginForm" class="login-form">
               <div>
                 <p class="eyebrow">Login</p>

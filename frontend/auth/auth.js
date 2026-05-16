@@ -28,11 +28,11 @@ export function getSession() {
   }
 }
 
-export async function register({ name, email, password, role }) {
+export async function register({ name, email, password, role, termsAccepted }) {
   return apiFetch("/auth/register", {
     method: "POST",
     auth: false,
-    body: { name, email, password, role }
+    body: { name, email, password, role, termsAccepted }
   });
 }
 
@@ -62,6 +62,22 @@ export function logout() {
 
 export async function refreshMe() {
   const response = await apiFetch("/me");
+  const current = getSession();
+  const session = {
+    ...current,
+    user: response.user,
+    role: response.user.role,
+    email: response.user.email,
+    name: response.user.name
+  };
+  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  return session;
+}
+
+export async function acceptTerms() {
+  const response = await apiFetch("/auth/accept-terms", {
+    method: "POST"
+  });
   const current = getSession();
   const session = {
     ...current,
