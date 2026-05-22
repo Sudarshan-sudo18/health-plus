@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const ACTIVE_BOOKING_STATUSES = ["pending", "confirmed", "completed"];
+const ACTIVE_BOOKING_STATUSES = ["upcoming", "pending", "confirmed"];
 const SLOT_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 const bookingSchema = new mongoose.Schema({
@@ -37,8 +37,8 @@ const bookingSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ["pending", "confirmed", "completed", "cancelled"],
-    default: "pending",
+    enum: ["upcoming", "pending", "confirmed", "completed", "cancelled"],
+    default: "upcoming",
     index: true
   },
   paymentStatus: {

@@ -2,7 +2,7 @@ import { Booking } from "../../../models/Booking.js";
 import { createHttpError } from "../../../utils/httpError.js";
 import { getUtcDateBounds, rangesOverlap } from "./slotGenerator.js";
 
-export const ACTIVE_BOOKING_STATUSES = ["pending", "confirmed", "completed"];
+export const UPCOMING_BOOKING_STATUSES = ["upcoming", "pending", "confirmed"];
 
 export async function findOverlappingBooking({ doctorId, startDateTime, endDateTime, legacyDate, legacySlot, excludeBookingId }) {
   const overlapFilters = [
@@ -16,13 +16,19 @@ export async function findOverlappingBooking({ doctorId, startDateTime, endDateT
     const { start, end } = getUtcDateBounds(legacyDate);
     overlapFilters.push({
       bookingDate: { $gte: start, $lt: end },
-      slot: legacySlot
+      slot: legacySlot,
+      $or: [
+        { startDateTime: { $exists: false } },
+        { endDateTime: { $exists: false } },
+        { startDateTime: null },
+        { endDateTime: null }
+      ]
     });
   }
 
   const query = {
     doctorId,
-    status: { $in: ACTIVE_BOOKING_STATUSES },
+    status: { $in: UPCOMING_BOOKING_STATUSES },
     $or: overlapFilters
   };
 

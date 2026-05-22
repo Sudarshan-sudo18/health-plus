@@ -4,7 +4,7 @@ import { Doctor } from "../../../models/Doctor.js";
 import { createHttpError } from "../../../utils/httpError.js";
 import { DoctorAvailabilityRule } from "./availability.model.js";
 import { AvailabilityException } from "./availabilityException.model.js";
-import { ACTIVE_BOOKING_STATUSES, getBookingRange, removeOccupiedSlots } from "./bookingConflict.service.js";
+import { UPCOMING_BOOKING_STATUSES, getBookingRange, removeOccupiedSlots } from "./bookingConflict.service.js";
 import {
   addMinutesToTime,
   combineDateAndTime,
@@ -446,14 +446,20 @@ async function findBookingsForGeneratedDate(doctorId, dateKey, slots) {
 
   return Booking.find({
     doctorId,
-    status: { $in: ACTIVE_BOOKING_STATUSES },
+    status: { $in: UPCOMING_BOOKING_STATUSES },
     $or: [
       {
         startDateTime: { $lt: generatedEnd },
         endDateTime: { $gt: generatedStart }
       },
       {
-        bookingDate: { $gte: start, $lt: end }
+        bookingDate: { $gte: start, $lt: end },
+        $or: [
+          { startDateTime: { $exists: false } },
+          { endDateTime: { $exists: false } },
+          { startDateTime: null },
+          { endDateTime: null }
+        ]
       }
     ]
   })

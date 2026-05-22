@@ -192,6 +192,7 @@ export function BookingTable({ bookings, perspective = "patient", actions }) {
 
   columns.push(
     { label: "Date", key: "date", render: (row) => `${escapeHtml(row.date)} <span class="muted-cell">${escapeHtml(row.time)}</span>` },
+    ...(perspective === "doctor" ? [{ label: "Type", key: "consultationType" }] : []),
     { label: "Status", key: "status", render: (row) => StatusBadge(row.status) },
     { label: "Payment", key: "paymentStatus", render: (row) => StatusBadge(row.paymentStatus) }
   );
@@ -464,12 +465,32 @@ export function normalizeBooking(booking) {
     slot: booking.slot || booking.time || "",
     startDateTime: booking.startDateTime || "",
     endDateTime: booking.endDateTime || "",
-    status: booking.status || "pending",
+    status: normalizeLifecycleStatus(booking.status || booking.rawStatus),
+    rawStatus: booking.rawStatus || booking.status || "",
     paymentStatus: booking.paymentStatus || "pending",
+    consultationType: formatConsultationMode(doctor?.consultationMode || booking.consultationMode || "online"),
     notes: booking.notes || "",
     cancelledBy: booking.cancelledBy || "",
     cancellationReason: booking.cancellationReason || ""
   };
+}
+
+function normalizeLifecycleStatus(status) {
+  const normalized = String(status || "upcoming").toLowerCase();
+
+  if (["pending", "confirmed", "upcoming"].includes(normalized)) {
+    return "upcoming";
+  }
+
+  if (normalized === "completed") {
+    return "completed";
+  }
+
+  if (normalized === "cancelled") {
+    return "cancelled";
+  }
+
+  return "upcoming";
 }
 
 function uniqueSlots(slots) {

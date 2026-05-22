@@ -684,6 +684,7 @@ tr:last-child td {
 
 .status-suspended,
 .status-requested,
+.status-upcoming,
 .status-pending {
   background: #fff6df;
   color: var(--amber);
@@ -1858,7 +1859,8 @@ textarea:focus-visible {
   border: 1px solid transparent;
 }
 
-.status-pending {
+.status-pending,
+.status-upcoming {
   border-color: rgba(201, 139, 31, 0.25);
 }
 

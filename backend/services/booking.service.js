@@ -6,6 +6,12 @@ import { serializeDoctor } from "./doctor.service.js";
 import { createHttpError } from "../utils/httpError.js";
 import { assertNoBookingOverlap } from "../src/modules/scheduling/bookingConflict.service.js";
 import { resolveAvailableBookingSlot } from "../src/modules/scheduling/scheduling.service.js";
+import {
+  notifyBookingCancelled,
+  notifyBookingCreated
+} from "./notification.service.js";
+
+export const UPCOMING_BOOKING_STATUSES = ["upcoming", "pending", "confirmed"];
 
 const bookingPopulate = [
   { path: "patientId", select: "name email role" },
@@ -56,9 +62,11 @@ export async function createBookingForPatient(user, payload = {}) {
       slot: scheduledSlot.slot,
       startDateTime: scheduledSlot.startDateTime,
       endDateTime: scheduledSlot.endDateTime,
+      status: "upcoming",
       notes: cleanString(payload.notes)
     });
 
+    await safeNotify(() => notifyBookingCreated(booking));
     return populateBooking(booking);
   } catch (error) {
     if (error.code === 11000) {
@@ -75,7 +83,9 @@ export async function getPatientBookings(user) {
 
 export async function getDoctorBookings(user) {
   assertRole(user, "doctor", "Only doctors can view doctor bookings.");
-  const doctor = await Doctor.findOne({ userId: user._id }).select("_id").lean();
+  const doctor = await Doctor.findOne({
+    $or: [{ userId: user._id }, { email: user.email }]
+  }).select("_id").lean();
 
   if (!doctor) {
     return [];
@@ -107,7 +117,9 @@ export async function cancelBookingByAdmin(bookingId, reason = "") {
 export async function updateBookingStatusByDoctor(user, bookingId, nextStatus, reason = "") {
   assertRole(user, "doctor", "Only doctors can update booking status.");
 
-  const doctor = await Doctor.findOne({ userId: user._id }).select("_id");
+  const doctor = await Doctor.findOne({
+    $or: [{ userId: user._id }, { email: user.email }]
+  }).select("_id");
 
   if (!doctor) {
     throw createHttpError(404, "Create your doctor profile before managing bookings.");
@@ -119,9 +131,9 @@ export async function updateBookingStatusByDoctor(user, bookingId, nextStatus, r
     throw createHttpError(403, "You cannot update another doctor's booking.");
   }
 
-  const status = cleanString(nextStatus);
+  const status = normalizeRequestedStatus(nextStatus);
 
-  if (!["confirmed", "completed", "cancelled"].includes(status)) {
+  if (!["upcoming", "completed", "cancelled"].includes(status)) {
     throw createHttpError(400, "Invalid booking status update.");
   }
 
@@ -168,10 +180,21 @@ async function getBookingById(bookingId) {
 }
 
 async function cancelBooking(booking, cancelledBy, reason) {
+  const lifecycleStatus = normalizeLifecycleStatus(booking.status);
+
+  if (lifecycleStatus === "cancelled") {
+    throw createHttpError(400, "Booking is already cancelled.");
+  }
+
+  if (lifecycleStatus === "completed") {
+    throw createHttpError(400, "Completed bookings cannot be cancelled.");
+  }
+
   booking.status = "cancelled";
   booking.cancelledBy = cancelledBy;
   booking.cancellationReason = cleanString(reason);
   await booking.save();
+  await safeNotify(() => notifyBookingCancelled(booking, cancelledBy));
   return populateBooking(booking);
 }
 
@@ -193,7 +216,8 @@ function serializeBooking(booking) {
     time: raw.slot,
     startDateTime: raw.startDateTime,
     endDateTime: raw.endDateTime,
-    status: raw.status,
+    status: normalizeLifecycleStatus(raw.status),
+    rawStatus: raw.status || "",
     paymentStatus: raw.paymentStatus,
     notes: raw.notes || "",
     cancelledBy: raw.cancelledBy || "",
@@ -224,11 +248,41 @@ function serializeDoctorRef(doctor) {
 }
 
 function isAllowedDoctorTransition(currentStatus, nextStatus) {
+  const current = normalizeLifecycleStatus(currentStatus);
+
   return (
-    nextStatus === "cancelled" ||
-    (currentStatus === "pending" && nextStatus === "confirmed") ||
-    (currentStatus === "confirmed" && nextStatus === "completed")
+    (nextStatus === "cancelled" && current !== "cancelled") ||
+    (current === "upcoming" && nextStatus === "completed") ||
+    (current === "upcoming" && nextStatus === "upcoming")
   );
+}
+
+export function normalizeLifecycleStatus(status) {
+  const normalized = cleanString(status).toLowerCase();
+
+  if (["pending", "confirmed", "upcoming"].includes(normalized)) {
+    return "upcoming";
+  }
+
+  if (normalized === "completed") {
+    return "completed";
+  }
+
+  if (normalized === "cancelled") {
+    return "cancelled";
+  }
+
+  return "upcoming";
+}
+
+function normalizeRequestedStatus(status) {
+  const normalized = cleanString(status).toLowerCase();
+
+  if (["pending", "confirmed", "upcoming"].includes(normalized)) {
+    return "upcoming";
+  }
+
+  return normalized;
 }
 
 function assertRole(user, role, message) {
@@ -239,4 +293,12 @@ function assertRole(user, role, message) {
 
 function cleanString(value) {
   return String(value || "").trim();
+}
+
+async function safeNotify(callback) {
+  try {
+    await callback();
+  } catch (error) {
+    console.error("Notification creation failed:", error.message);
+  }
 }

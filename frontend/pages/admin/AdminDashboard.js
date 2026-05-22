@@ -73,14 +73,14 @@ async function loadAdminDashboard(root, navigate, section) {
 function renderAdminData(data) {
   const pendingDoctors = data.doctors.filter((doctor) => !doctor.isApproved).length;
   const activeDoctors = data.doctors.filter((doctor) => doctor.isApproved && doctor.isActive !== false).length;
-  const activeBookings = data.bookings.filter((booking) => booking.status !== "cancelled").length;
+  const activeBookings = data.bookings.map(normalizeBooking).filter((booking) => booking.status === "upcoming").length;
   const unpaidBookings = data.bookings.filter((booking) => booking.paymentStatus === "pending").length;
 
   const metrics = `
     <section class="metric-grid">
       ${MetricCard({ icon: "icon-shield", label: "Active doctors", value: String(activeDoctors), note: "Approved and visible" })}
       ${MetricCard({ icon: "icon-user", label: "Pending review", value: String(pendingDoctors), note: "Awaiting admin action" })}
-      ${MetricCard({ icon: "icon-calendar", label: "Active bookings", value: String(activeBookings), note: "Not cancelled" })}
+      ${MetricCard({ icon: "icon-calendar", label: "Upcoming bookings", value: String(activeBookings), note: "Scheduled visits" })}
       ${MetricCard({ icon: "icon-wallet", label: "Payment pending", value: String(unpaidBookings), note: "Can be waived by admin" })}
       ${MetricCard({ icon: "icon-report", label: "Admin profile", value: data.profileResult?.isProfileComplete ? "Complete" : "Incomplete", note: "Operations contact" })}
     </section>
@@ -206,8 +206,8 @@ function renderAdminAppointmentsSection(data) {
           perspective: "admin",
           actions: (row) => `
             <div class="inline-actions">
-              <button class="small-button danger-button" type="button" data-admin-cancel-booking="${escapeHtml(row.id)}" ${row.status === "cancelled" ? "disabled" : ""}>
-                ${row.status === "cancelled" ? "Cancelled" : "Cancel"}
+              <button class="small-button danger-button" type="button" data-admin-cancel-booking="${escapeHtml(row.id)}" ${row.status !== "upcoming" ? "disabled" : ""}>
+                ${row.status === "upcoming" ? "Cancel" : row.status === "cancelled" ? "Cancelled" : "Closed"}
               </button>
               <button class="small-button" type="button" data-waive-booking="${escapeHtml(row.id)}" ${row.paymentStatus === "waived" ? "disabled" : ""}>
                 ${row.paymentStatus === "waived" ? "Waived" : "Waive payment"}

@@ -79,13 +79,13 @@ function renderPatientData(data) {
     (total, doctor) => total + (doctor.availabilityForDate?.availableSlots?.length || 0),
     0
   );
-  const activeBookings = data.bookings.filter((booking) => ["pending", "confirmed"].includes(booking.status)).length;
+  const activeBookings = data.bookings.map(normalizeBooking).filter((booking) => booking.status === "upcoming").length;
 
   const metrics = `
     <section class="metric-grid">
       ${MetricCard({ icon: "icon-shield", label: "Approved doctors", value: String(data.doctors.length), note: "Available providers" })}
       ${MetricCard({ icon: "icon-calendar", label: "Open slots", value: String(openSlotCount), note: "Selected date" })}
-      ${MetricCard({ icon: "icon-video", label: "Active bookings", value: String(activeBookings), note: "Pending or confirmed" })}
+      ${MetricCard({ icon: "icon-video", label: "Upcoming bookings", value: String(activeBookings), note: "Scheduled visits" })}
       ${MetricCard({ icon: "icon-prescription", label: "Profile", value: data.profileResult?.isProfileComplete ? "Complete" : "Incomplete", note: "Care details" })}
     </section>
   `;
@@ -111,7 +111,7 @@ function renderPatientData(data) {
 
 function renderPatientOverview(data, metrics, openSlotCount) {
   const rows = data.bookings.map(normalizeBooking);
-  const upcoming = rows.filter((booking) => ["pending", "confirmed"].includes(booking.status)).slice(0, 4);
+  const upcoming = rows.filter((booking) => booking.status === "upcoming").slice(0, 4);
   const recent = rows.slice(0, 4);
 
   return `
@@ -222,8 +222,8 @@ function renderPatientAppointmentsSection(data) {
           bookings: data.bookings,
           perspective: "patient",
           actions: (row) => `
-            <button class="small-button danger-button" type="button" data-cancel-booking="${escapeHtml(row.id)}" ${row.status === "cancelled" ? "disabled" : ""}>
-              ${row.status === "cancelled" ? "Cancelled" : "Cancel"}
+            <button class="small-button danger-button" type="button" data-cancel-booking="${escapeHtml(row.id)}" ${row.status !== "upcoming" ? "disabled" : ""}>
+              ${row.status === "upcoming" ? "Cancel" : row.status === "cancelled" ? "Cancelled" : "Closed"}
             </button>
           `
         })
