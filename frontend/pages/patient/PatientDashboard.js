@@ -15,7 +15,7 @@ import {
   toast
 } from "/components/ui.js";
 import { apiFetch } from "/services/api.js";
-import { fetchDoctorsWithSlots } from "/services/scheduling.js";
+import { fetchDoctorsWithSlots, normalizeScheduleDate } from "/services/scheduling.js";
 
 const PATIENT_SECTIONS = ["overview", "doctors", "appointments", "payments", "profile"];
 
@@ -33,17 +33,23 @@ export const PatientDashboard = {
     });
   },
   afterRender({ navigate, query }, root) {
-    loadPatientDashboard(root, navigate, getActiveSection(query, PATIENT_SECTIONS));
+    loadPatientDashboard(
+      root,
+      navigate,
+      getActiveSection(query, PATIENT_SECTIONS),
+      normalizeScheduleDate(query.get("date") || getSelectedDate(root))
+    );
   }
 };
 
 async function loadPatientDashboard(root, navigate, section, selectedDate = getSelectedDate(root)) {
+  const normalizedDate = normalizeScheduleDate(selectedDate);
   const content = root.querySelector("#patientContent");
   content.innerHTML = LoadingState("Loading patient workspace...");
 
   try {
     const [doctors, bookingData, profileData] = await Promise.all([
-      fetchDoctorsWithSlots(selectedDate),
+      fetchDoctorsWithSlots(normalizedDate),
       apiFetch("/api/bookings/my"),
       apiFetch("/api/profile/me")
     ]);
@@ -52,7 +58,7 @@ async function loadPatientDashboard(root, navigate, section, selectedDate = getS
       doctors,
       bookings: bookingData.bookings || [],
       profileResult: profileData,
-      selectedDate,
+      selectedDate: normalizedDate,
       section
     });
     bindPatientActions(root, navigate, section);
@@ -181,10 +187,11 @@ function renderDoctorBookingSection(data) {
         actions: `
           <label class="compact-field">
             Date
-            <input id="bookingDate" type="date" value="${escapeHtml(data.selectedDate)}" min="${formatDateInputValue()}">
+            <input id="bookingDate" type="date" value="${escapeHtml(data.selectedDate)}" min="${formatDateInputValue()}" max="${formatDateInputValue(addDays(new Date(), 30))}">
           </label>
         `,
         children: `
+          ${renderDateNavigator(data.selectedDate)}
           <label class="booking-note-field">
             Consultation notes
             <textarea id="bookingNotes" rows="3" maxlength="1000" placeholder="Briefly describe the concern for the doctor"></textarea>
@@ -278,7 +285,14 @@ function bindPatientActions(root, navigate, section) {
 
   const bookingDate = root.querySelector("#bookingDate");
   bookingDate?.addEventListener("change", () => {
-    loadPatientDashboard(root, navigate, "doctors", bookingDate.value || formatDateInputValue());
+    const selectedDate = normalizeScheduleDate(bookingDate.value || formatDateInputValue());
+    navigate(`/patient?section=doctors&date=${encodeURIComponent(selectedDate)}`);
+  });
+
+  root.querySelectorAll("[data-booking-date-shortcut]").forEach((button) => {
+    button.addEventListener("click", () => {
+      navigate(`/patient?section=doctors&date=${encodeURIComponent(button.dataset.bookingDateShortcut)}`);
+    });
   });
 
   root.querySelectorAll("[data-select-slot]").forEach((button) => {
@@ -305,8 +319,9 @@ function bindPatientActions(root, navigate, section) {
 
   root.querySelectorAll("[data-create-booking]").forEach((button) => {
     button.addEventListener("click", async () => {
+      const originalLabel = button.innerHTML;
       try {
-        const selectedDate = root.querySelector("#bookingDate")?.value || formatDateInputValue();
+        const selectedDate = normalizeScheduleDate(root.querySelector("#bookingDate")?.value || formatDateInputValue());
         const startDateTime = button.dataset.startDatetime;
         const endDateTime = button.dataset.endDatetime;
 
@@ -314,6 +329,9 @@ function bindPatientActions(root, navigate, section) {
           toast("Select an available appointment time.");
           return;
         }
+
+        button.disabled = true;
+        button.innerHTML = `<span class="spinner tiny-spinner" aria-hidden="true"></span> Booking...`;
 
         await apiFetch("/api/bookings", {
           method: "POST",
@@ -327,6 +345,8 @@ function bindPatientActions(root, navigate, section) {
         toast("Booking created.");
         loadPatientDashboard(root, navigate, "doctors", selectedDate);
       } catch (error) {
+        button.disabled = false;
+        button.innerHTML = originalLabel;
         toast(error.message);
         if (error.status === 401 || error.status === 403) {
           navigate("/login");
@@ -361,7 +381,44 @@ function bindRetry(root, navigate, section) {
 }
 
 function getSelectedDate(root) {
-  return root.querySelector("#bookingDate")?.value || formatDateInputValue();
+  return normalizeScheduleDate(root.querySelector("#bookingDate")?.value || formatDateInputValue());
+}
+
+function renderDateNavigator(selectedDate) {
+  const dates = Array.from({ length: 14 }, (_, index) => formatDateInputValue(addDays(new Date(), index)));
+
+  return `
+    <div class="date-strip" aria-label="Upcoming appointment dates">
+      ${dates
+        .map((date) => `
+          <button
+            class="date-chip${date === selectedDate ? " active" : ""}"
+            type="button"
+            data-booking-date-shortcut="${escapeHtml(date)}"
+          >
+            <strong>${escapeHtml(formatDateChipDay(date))}</strong>
+            <span>${escapeHtml(formatDateChipDate(date))}</span>
+          </button>
+        `)
+        .join("")}
+    </div>
+  `;
+}
+
+function addDays(date, days) {
+  const value = new Date(date);
+  value.setDate(value.getDate() + days);
+  return value;
+}
+
+function formatDateChipDay(dateKey) {
+  const date = new Date(`${dateKey}T00:00:00`);
+  return new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(date);
+}
+
+function formatDateChipDate(dateKey) {
+  const date = new Date(`${dateKey}T00:00:00`);
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(date);
 }
 
 function getPatientTitle(section) {

@@ -1,7 +1,8 @@
 import { apiFetch } from "/services/api.js";
-import { getRecordId } from "/components/ui.js";
+import { formatDateInputValue, getRecordId } from "/components/ui.js";
 
 export async function fetchDoctorsWithSlots(date) {
+  const selectedDate = normalizeScheduleDate(date);
   const doctorData = await apiFetch("/api/doctors/public");
   const doctors = doctorData.doctors || [];
 
@@ -14,16 +15,17 @@ export async function fetchDoctorsWithSlots(date) {
       }
 
       try {
-        const slotData = await apiFetch(`/api/scheduling/doctor/${encodeURIComponent(doctorId)}/slots?date=${encodeURIComponent(date)}`);
+        const slotData = await apiFetch(`/api/scheduling/doctor/${encodeURIComponent(doctorId)}/slots?date=${encodeURIComponent(selectedDate)}`);
         return {
           ...doctor,
           availabilityForDate: slotData.availability
         };
-      } catch {
+      } catch (error) {
         return {
           ...doctor,
+          availabilityError: error.message || "Could not load slots for this date.",
           availabilityForDate: {
-            date,
+            date: selectedDate,
             day: "",
             slots: [],
             bookedSlots: [],
@@ -36,6 +38,11 @@ export async function fetchDoctorsWithSlots(date) {
   );
 
   return hydratedDoctors;
+}
+
+export function normalizeScheduleDate(date) {
+  const normalized = formatDateInputValue(date || new Date());
+  return normalized < formatDateInputValue() ? formatDateInputValue() : normalized;
 }
 
 export async function fetchAvailabilityRules() {

@@ -20,6 +20,7 @@ const WEEK_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Frid
 const DEFAULT_TIMEZONE = "UTC";
 
 export async function getDoctorSlots({ doctorId, date }) {
+  assertDateIsNotPast(date);
   const doctor = await getBookableDoctor(doctorId);
   return getAvailableSlotsForDoctor(doctor, { date });
 }
@@ -107,7 +108,7 @@ export async function getAvailableSlotsForDoctor(doctorOrId, { date }) {
   const rules = await getRulesForDoctor(doctor, dateKey);
   const generatedSlots = generateSlotsForDate(rules, dateKey);
   const exceptionSlots = await applyExceptions(doctor, generatedSlots, dateKey, rules);
-  const futureSlots = removePastSlots(exceptionSlots);
+  const futureSlots = removePastSlots(exceptionSlots, dateKey);
   const bookings = await findBookingsForGeneratedDate(doctor._id, dateKey, futureSlots);
   const availableSlots = removeOccupiedSlots(futureSlots, bookings);
   const bookedSlots = futureSlots.filter((slot) => !availableSlots.includes(slot));
@@ -572,9 +573,28 @@ function dedupeSlots(slots) {
   return accepted;
 }
 
-function removePastSlots(slots) {
+function removePastSlots(slots, dateKey) {
+  const selectedDateKey = normalizeDateKey(dateKey);
+  const todayKey = todayUtc().toISOString().slice(0, 10);
+
+  if (selectedDateKey > todayKey) {
+    return slots;
+  }
+
+  if (selectedDateKey < todayKey) {
+    return [];
+  }
+
   const now = new Date();
   return slots.filter((slot) => slot.endDateTime > now);
+}
+
+function assertDateIsNotPast(date) {
+  const dateKey = normalizeDateKey(date);
+
+  if (dateKey < todayUtc().toISOString().slice(0, 10)) {
+    throw createHttpError(400, "Past dates cannot be booked.");
+  }
 }
 
 function parseRequestedRange(payload) {

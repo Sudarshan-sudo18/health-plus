@@ -971,6 +971,48 @@ tr:last-child td {
   margin-bottom: 1rem;
 }
 
+.date-strip {
+  display: grid;
+  grid-auto-columns: minmax(5.4rem, 1fr);
+  grid-auto-flow: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  overflow-x: auto;
+  padding-bottom: 0.15rem;
+}
+
+.date-chip {
+  display: grid;
+  min-height: 4.2rem;
+  min-width: 5.4rem;
+  align-content: center;
+  justify-items: center;
+  gap: 0.15rem;
+  border: 1px solid rgba(15, 124, 207, 0.18);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--text);
+  font-weight: 900;
+}
+
+.date-chip span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.date-chip:hover,
+.date-chip.active {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+  color: var(--blue-strong);
+}
+
+.tiny-spinner {
+  width: 0.9rem;
+  height: 0.9rem;
+  border-width: 2px;
+}
+
 .booking-notes {
   display: block;
   max-width: 18rem;

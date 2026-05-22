@@ -107,6 +107,7 @@ export function DoctorAvailabilityCard({ doctor, selectedDate, mode = "patient" 
   const availableSlotDetails = availability.availableSlotDetails;
   const bookedSlots = availability.bookedSlots;
   const languages = doctor.languagesSpoken || doctor.languages || [];
+  const emptySlotText = getSlotEmptyText({ doctor, selectedDate, availability, isApproved, isActive });
 
   return `
     <article class="availability-card" data-doctor-card="${escapeHtml(doctorId)}">
@@ -156,7 +157,7 @@ export function DoctorAvailabilityCard({ doctor, selectedDate, mode = "patient" 
                   })
                 )
                 .join("")
-            : `<div class="empty-state compact">No open slots for this date.</div>`
+            : `<div class="empty-state compact">${escapeHtml(emptySlotText)}</div>`
         }
         ${bookedSlots.map((slot) => renderSlotButton({ doctorId, slot, mode, disabled: true })).join("")}
       </div>
@@ -405,7 +406,9 @@ function getAvailabilityForDate(doctor, selectedDate) {
       day: fromApi.day || day,
       availableSlots,
       availableSlotDetails,
-      bookedSlots
+      bookedSlots,
+      totalSlots: allSlots.length,
+      error: doctor.availabilityError || ""
     };
   }
 
@@ -415,8 +418,34 @@ function getAvailabilityForDate(doctor, selectedDate) {
     day,
     availableSlots: uniqueSlots(weeklyMatch?.slots || []),
     availableSlotDetails: uniqueSlots(weeklyMatch?.slots || []).map((slot) => ({ slot, time: slot })),
-    bookedSlots: []
+    bookedSlots: [],
+    totalSlots: uniqueSlots(weeklyMatch?.slots || []).length,
+    error: doctor.availabilityError || ""
   };
+}
+
+function getSlotEmptyText({ doctor, selectedDate, availability, isApproved, isActive }) {
+  if (selectedDate < formatDateInputValue()) {
+    return "Past dates cannot be booked.";
+  }
+
+  if (!isApproved || !isActive) {
+    return "Doctor unavailable for booking.";
+  }
+
+  if (availability.error) {
+    return availability.error;
+  }
+
+  if (availability.totalSlots > 0 && availability.bookedSlots.length >= availability.totalSlots) {
+    return "Fully booked for this date.";
+  }
+
+  if (!doctor.availability?.length && !availability.totalSlots) {
+    return "Doctor has not opened slots for this date.";
+  }
+
+  return "No availability on selected date.";
 }
 
 export function normalizeBooking(booking) {
