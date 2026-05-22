@@ -15,6 +15,7 @@ import {
   toast
 } from "/components/ui.js";
 import { apiFetch } from "/services/api.js";
+import { fetchDoctorsWithSlots } from "/services/scheduling.js";
 
 const PATIENT_SECTIONS = ["overview", "doctors", "appointments", "payments", "profile"];
 
@@ -41,14 +42,14 @@ async function loadPatientDashboard(root, navigate, section, selectedDate = getS
   content.innerHTML = LoadingState("Loading patient workspace...");
 
   try {
-    const [doctorData, bookingData, profileData] = await Promise.all([
-      apiFetch(`/api/doctors/public?date=${encodeURIComponent(selectedDate)}`),
+    const [doctors, bookingData, profileData] = await Promise.all([
+      fetchDoctorsWithSlots(selectedDate),
       apiFetch("/api/bookings/my"),
       apiFetch("/api/profile/me")
     ]);
 
     content.innerHTML = renderPatientData({
-      doctors: doctorData.doctors || [],
+      doctors,
       bookings: bookingData.bookings || [],
       profileResult: profileData,
       selectedDate,
@@ -296,6 +297,8 @@ function bindPatientActions(root, navigate, section) {
       if (bookButton) {
         bookButton.disabled = false;
         bookButton.dataset.slot = button.dataset.time;
+        bookButton.dataset.startDatetime = button.dataset.startDatetime || "";
+        bookButton.dataset.endDatetime = button.dataset.endDatetime || "";
       }
     });
   });
@@ -304,12 +307,20 @@ function bindPatientActions(root, navigate, section) {
     button.addEventListener("click", async () => {
       try {
         const selectedDate = root.querySelector("#bookingDate")?.value || formatDateInputValue();
+        const startDateTime = button.dataset.startDatetime;
+        const endDateTime = button.dataset.endDatetime;
+
+        if (!startDateTime || !endDateTime) {
+          toast("Select an available appointment time.");
+          return;
+        }
+
         await apiFetch("/api/bookings", {
           method: "POST",
           body: {
             doctorId: button.dataset.createBooking,
-            bookingDate: selectedDate,
-            slot: button.dataset.slot,
+            startDateTime,
+            endDateTime,
             notes: root.querySelector("#bookingNotes")?.value || ""
           }
         });

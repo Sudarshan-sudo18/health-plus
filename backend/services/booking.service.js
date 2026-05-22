@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { Booking } from "../models/Booking.js";
 import { Doctor } from "../models/Doctor.js";
-import { assertNotPastDate, normalizeSlot } from "./availability.service.js";
+import { assertNotPastDate } from "./availability.service.js";
 import { serializeDoctor } from "./doctor.service.js";
 import { createHttpError } from "../utils/httpError.js";
 import { assertNoBookingOverlap } from "../src/modules/scheduling/bookingConflict.service.js";
@@ -20,8 +20,7 @@ export async function createBookingForPatient(user, payload = {}) {
   assertRole(user, "patient", "Only patients can create bookings.");
 
   const doctorId = String(payload.doctorId || "").trim();
-  const bookingDate = assertNotPastDate(payload.bookingDate || payload.date || payload.startDateTime);
-  const slot = normalizeSlot(payload.slot || payload.time || extractUtcTime(payload.startDateTime));
+  assertNotPastDate(payload.bookingDate || payload.date || payload.startDateTime);
 
   if (!mongoose.isValidObjectId(doctorId)) {
     throw createHttpError(400, "Doctor id is required and must be valid.");
@@ -38,9 +37,7 @@ export async function createBookingForPatient(user, payload = {}) {
   }
 
   const scheduledSlot = await resolveAvailableBookingSlot(doctor, {
-    ...payload,
-    bookingDate,
-    slot
+    ...payload
   });
 
   await assertNoBookingOverlap({
@@ -242,18 +239,4 @@ function assertRole(user, role, message) {
 
 function cleanString(value) {
   return String(value || "").trim();
-}
-
-function extractUtcTime(value) {
-  if (!value) {
-    return "";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return date.toISOString().slice(11, 16);
 }

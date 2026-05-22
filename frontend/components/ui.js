@@ -104,6 +104,7 @@ export function DoctorAvailabilityCard({ doctor, selectedDate, mode = "patient" 
   const isApproved = doctor.isApproved === true;
   const isActive = doctor.isActive !== false;
   const availableSlots = availability.availableSlots;
+  const availableSlotDetails = availability.availableSlotDetails;
   const bookedSlots = availability.bookedSlots;
   const languages = doctor.languagesSpoken || doctor.languages || [];
 
@@ -145,7 +146,15 @@ export function DoctorAvailabilityCard({ doctor, selectedDate, mode = "patient" 
         ${
           availableSlots.length
             ? availableSlots
-                .map((slot) => renderSlotButton({ doctorId, slot, mode, disabled: false }))
+                .map((slot, index) =>
+                  renderSlotButton({
+                    doctorId,
+                    slot,
+                    detail: availableSlotDetails[index],
+                    mode,
+                    disabled: false
+                  })
+                )
                 .join("")
             : `<div class="empty-state compact">No open slots for this date.</div>`
         }
@@ -292,13 +301,21 @@ export function getRecordId(record) {
 }
 
 export function formatDateInputValue(date = new Date()) {
+  if (typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return date;
+  }
+
   const value = date instanceof Date ? date : new Date(date);
 
   if (Number.isNaN(value.getTime())) {
     return formatDateInputValue(new Date());
   }
 
-  return value.toISOString().slice(0, 10);
+  return [
+    value.getFullYear(),
+    String(value.getMonth() + 1).padStart(2, "0"),
+    String(value.getDate()).padStart(2, "0")
+  ].join("-");
 }
 
 export function formatCurrency(value, currency = "USD") {
@@ -321,9 +338,11 @@ function formatConsultationMode(mode) {
   }[mode] || "Online";
 }
 
-function renderSlotButton({ doctorId, slot, mode, disabled }) {
+function renderSlotButton({ doctorId, slot, detail, mode, disabled }) {
+  const label = detail?.startDateTime ? formatTimeRange(detail.startDateTime, detail.endDateTime) : slot;
+
   if (mode !== "patient") {
-    return `<span class="slot-button readonly${disabled ? " unavailable" : ""}">${escapeHtml(slot)}${disabled ? " booked" : ""}</span>`;
+    return `<span class="slot-button readonly${disabled ? " unavailable" : ""}">${escapeHtml(label)}${disabled ? " booked" : ""}</span>`;
   }
 
   return `
@@ -332,10 +351,12 @@ function renderSlotButton({ doctorId, slot, mode, disabled }) {
       type="button"
       data-select-slot="${escapeHtml(doctorId)}"
       data-time="${escapeHtml(slot)}"
+      data-start-datetime="${escapeHtml(detail?.startDateTime || "")}"
+      data-end-datetime="${escapeHtml(detail?.endDateTime || "")}"
       aria-pressed="false"
       ${disabled ? "disabled" : ""}
     >
-      ${escapeHtml(slot)}${disabled ? " booked" : ""}
+      ${escapeHtml(label)}${disabled ? " booked" : ""}
     </button>
   `;
 }
@@ -371,10 +392,19 @@ function getAvailabilityForDate(doctor, selectedDate) {
     const availableSlots = fromApi.availableSlots
       ? uniqueSlots(fromApi.availableSlots)
       : allSlots.filter((slot) => !bookedSlots.includes(slot));
+    const availableSlotDetails = Array.isArray(fromApi.slotDetails)
+      ? fromApi.slotDetails
+          .map((detail) => ({
+            ...detail,
+            slot: String(detail.slot || detail.time || "").trim()
+          }))
+          .filter((detail) => detail.slot)
+      : availableSlots.map((slot) => ({ slot, time: slot }));
 
     return {
       day: fromApi.day || day,
       availableSlots,
+      availableSlotDetails,
       bookedSlots
     };
   }
@@ -384,6 +414,7 @@ function getAvailabilityForDate(doctor, selectedDate) {
   return {
     day,
     availableSlots: uniqueSlots(weeklyMatch?.slots || []),
+    availableSlotDetails: uniqueSlots(weeklyMatch?.slots || []).map((slot) => ({ slot, time: slot })),
     bookedSlots: []
   };
 }
@@ -396,10 +427,14 @@ export function normalizeBooking(booking) {
     id: getRecordId(booking),
     patientName: patient?.name || "Patient",
     doctorName: doctor?.fullName || doctor?.name || "Doctor",
-    date: formatDateLabel(booking.bookingDate || booking.date),
+    date: booking.startDateTime
+      ? formatDateLabel(booking.startDateTime, { local: true })
+      : formatDateLabel(booking.bookingDate || booking.date),
     bookingDate: booking.bookingDate || booking.date,
-    time: booking.slot || booking.time || "",
+    time: booking.startDateTime ? formatTimeRange(booking.startDateTime, booking.endDateTime) : booking.slot || booking.time || "",
     slot: booking.slot || booking.time || "",
+    startDateTime: booking.startDateTime || "",
+    endDateTime: booking.endDateTime || "",
     status: booking.status || "pending",
     paymentStatus: booking.paymentStatus || "pending",
     notes: booking.notes || "",
@@ -425,17 +460,42 @@ function getWeekdayName(dateKey) {
   return new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "UTC" }).format(date);
 }
 
-function formatDateLabel(value) {
+function formatDateLabel(value, { local = false } = {}) {
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
     return String(value || "");
   }
 
-  return new Intl.DateTimeFormat("en-US", {
+  const options = {
     month: "short",
     day: "numeric",
-    year: "numeric",
-    timeZone: "UTC"
-  }).format(date);
+    year: "numeric"
+  };
+
+  if (!local) {
+    options.timeZone = "UTC";
+  }
+
+  return new Intl.DateTimeFormat("en-US", options).format(date);
+}
+
+function formatTimeRange(startValue, endValue) {
+  const start = new Date(startValue);
+  const end = new Date(endValue);
+
+  if (Number.isNaN(start.getTime())) {
+    return "";
+  }
+
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+
+  if (Number.isNaN(end.getTime())) {
+    return formatter.format(start);
+  }
+
+  return `${formatter.format(start)}-${formatter.format(end)}`;
 }

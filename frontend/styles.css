@@ -997,6 +997,117 @@ tr:last-child td {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.schedule-manager {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.schedule-toolbar,
+.schedule-blocks > div:first-child {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.schedule-toolbar h3,
+.schedule-blocks h3 {
+  margin: 0.15rem 0 0;
+}
+
+.schedule-toolbar span {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.schedule-rule-form {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.weekday-schedule-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fbfdff;
+  overflow: hidden;
+}
+
+.weekday-schedule-card summary {
+  display: flex;
+  cursor: pointer;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  color: var(--text);
+  font-weight: 900;
+}
+
+.weekday-schedule-card summary strong {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.weekday-rule-list {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0 1rem 0.85rem;
+}
+
+.schedule-rule-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(7.5rem, 1fr)) auto auto;
+  gap: 0.7rem;
+  align-items: end;
+  padding: 0.8rem;
+  border: 1px solid rgba(206, 226, 237, 0.95);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.toggle-field {
+  display: inline-flex;
+  min-height: 2.7rem;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.toggle-field input {
+  width: auto;
+}
+
+.weekday-schedule-card > .small-button {
+  margin: 0 1rem 1rem;
+}
+
+.schedule-blocks {
+  display: grid;
+  gap: 0.85rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(215, 231, 239, 0.75);
+}
+
+.availability-block-form {
+  display: grid;
+  grid-template-columns: minmax(9rem, 0.8fr) auto repeat(2, minmax(7rem, 0.7fr)) minmax(10rem, 1fr) auto;
+  gap: 0.75rem;
+  align-items: end;
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #f8fcff;
+}
+
+.availability-block-reason {
+  min-width: 0;
+}
+
 .form-actions {
   display: flex;
   justify-content: flex-end;
@@ -1788,6 +1899,11 @@ textarea:focus-visible {
     grid-template-columns: 1fr;
   }
 
+  .schedule-rule-row,
+  .availability-block-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .slot-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1899,6 +2015,8 @@ textarea:focus-visible {
   .doctor-profile-band,
   .profile-form,
   .availability-editor,
+  .availability-block-form,
+  .schedule-rule-row,
   .doctor-card-meta,
   .reject-row,
   .slot-grid {
@@ -1907,10 +2025,24 @@ textarea:focus-visible {
 
   .panel-head,
   .availability-head,
+  .schedule-toolbar,
+  .schedule-blocks > div:first-child,
   .selected-day,
   .error-state {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .weekday-schedule-card summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .schedule-toolbar .primary-button,
+  .availability-block-form .form-actions,
+  .availability-block-form .small-button {
+    width: 100%;
+    justify-content: center;
   }
 
   .auth-copy {

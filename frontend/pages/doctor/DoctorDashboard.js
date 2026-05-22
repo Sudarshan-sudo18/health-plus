@@ -1,6 +1,12 @@
 import { AppLayout, getActiveSection } from "/components/layout.js";
 import { bindProfilePhotoInputs, ProfilePhotoInput, renderAvatar } from "/components/profile.js";
 import {
+  SchedulingManager,
+  getValidatedAvailabilityBlock,
+  getValidatedAvailabilityRules,
+  renderAvailabilityRuleRow
+} from "/components/scheduling.js";
+import {
   BookingTable,
   CompactList,
   DataTable,
@@ -16,8 +22,14 @@ import {
   toast
 } from "/components/ui.js";
 import { apiFetch } from "/services/api.js";
+import {
+  createAvailabilityBlock,
+  deleteAvailabilityBlock,
+  fetchAvailabilityBlocks,
+  fetchAvailabilityRules,
+  saveAvailabilityRules
+} from "/services/scheduling.js";
 
-const WEEK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const DOCTOR_SECTIONS = ["overview", "appointments", "patients", "profile", "availability", "payments"];
 
 export const DoctorDashboard = {
@@ -47,14 +59,16 @@ async function loadDoctorDashboard(root, navigate, session, section) {
       apiFetch("/api/doctors/me"),
       apiFetch("/api/doctors/bookings")
     ]);
+    const schedulingData = await loadDoctorSchedulingState(section);
 
     content.innerHTML = renderDoctorData({
       profile: profileData.doctor,
       bookings: bookingData.bookings || [],
+      scheduling: schedulingData,
       user: session?.user,
       section
     });
-    bindDoctorActions(root, navigate, session, section);
+    bindDoctorActions(root, navigate, session, section, { profile: profileData.doctor });
   } catch (error) {
     if (error.status === 401 || error.status === 403) {
       toast("Please log in again.");
@@ -190,12 +204,30 @@ function renderDoctorProfileSection(data) {
 }
 
 function renderDoctorAvailabilitySection(data) {
+  if (!data.profile) {
+    return `
+      <div class="section-stack">
+        ${renderProfileStatus(data.profile)}
+        ${Panel({
+          eyebrow: "Availability",
+          title: "Complete your profile first",
+          children: `<div class="empty-state compact">Create your doctor profile before setting bookable hours.</div>`
+        })}
+      </div>
+    `;
+  }
+
   return `
     <div class="section-stack">
+      ${renderProfileStatus(data.profile)}
       ${Panel({
         eyebrow: "Weekly schedule",
         title: "Availability",
-        children: renderAvailabilityForm(data.profile)
+        children: SchedulingManager({
+          rules: data.scheduling?.rules || [],
+          exceptions: data.scheduling?.exceptions || [],
+          profile: data.profile
+        })
       })}
     </div>
   `;
@@ -313,26 +345,6 @@ function renderProfileForm(profile, user) {
   `;
 }
 
-function renderAvailabilityForm(profile) {
-  return `
-    <form id="availabilityForm" class="availability-editor">
-      <p class="form-helper">Use 24-hour times separated by commas, semicolons, or new lines.</p>
-      ${WEEK_DAYS.map((day) => {
-        const slots = (profile?.availability || []).find((item) => item.day === day)?.slots || [];
-        return `
-          <label>
-            ${day}
-            <input data-availability-day="${day}" value="${escapeHtml(slots.join(", "))}" placeholder="09:00, 09:30, 10:00">
-          </label>
-        `;
-      }).join("")}
-      <div class="form-actions">
-        <button class="primary-button" type="submit">Save availability</button>
-      </div>
-    </form>
-  `;
-}
-
 function renderCompactBookings(bookings, emptyText) {
   return CompactList({
     items: bookings,
@@ -442,7 +454,7 @@ function renderDoctorBookingActions(row) {
   `;
 }
 
-function bindDoctorActions(root, navigate, session, section) {
+function bindDoctorActions(root, navigate, session, section, data = {}) {
   bindProfilePhotoInputs(root);
 
   root.querySelector("#doctorProfileForm")?.addEventListener("submit", async (event) => {
@@ -464,25 +476,18 @@ function bindDoctorActions(root, navigate, session, section) {
     }
   });
 
-  root.querySelector("#availabilityForm")?.addEventListener("submit", async (event) => {
+  root.querySelector("#schedulingRulesForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const validation = getValidatedAvailabilityRules(root);
 
-    const availability = Array.from(root.querySelectorAll("[data-availability-day]"))
-      .map((input) => ({
-        day: input.dataset.availabilityDay,
-        slots: input.value
-          .split(/[,\n;]+/)
-          .map((slot) => slot.trim())
-          .filter(Boolean)
-      }))
-      .filter((item) => item.slots.length > 0);
+    if (!validation.valid) {
+      toast(validation.message);
+      return;
+    }
 
     try {
-      await apiFetch("/api/doctors/availability", {
-        method: "PATCH",
-        body: { availability }
-      });
-      toast("Availability updated.");
+      await saveAvailabilityRules(validation.rules);
+      toast("Schedule saved.");
       loadDoctorDashboard(root, navigate, session, section);
     } catch (error) {
       toast(error.message);
@@ -490,6 +495,78 @@ function bindDoctorActions(root, navigate, session, section) {
         navigate("/login");
       }
     }
+  });
+
+  root.querySelectorAll("[data-add-rule]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const weekday = button.dataset.addRule;
+      const list = root.querySelector(`[data-weekday-list="${weekday}"]`);
+      list?.querySelector(".empty-state")?.remove();
+      list?.insertAdjacentHTML("beforeend", renderAvailabilityRuleRow({ weekday, profile: data.profile }));
+    });
+  });
+
+  root.querySelector("#schedulingRulesForm")?.addEventListener("click", (event) => {
+    const removeButton = event.target.closest("[data-remove-rule]");
+    if (!removeButton) return;
+    const row = removeButton.closest("[data-rule-row]");
+    const list = row?.parentElement;
+    const weekday = row?.dataset.weekday || "this day";
+    row?.remove();
+
+    if (list && !list.querySelector("[data-rule-row]")) {
+      list.innerHTML = `<div class="empty-state compact">No availability set for ${escapeHtml(weekday)}.</div>`;
+    }
+  });
+
+  const blockForm = root.querySelector("#availabilityBlockForm");
+  const fullDayInput = blockForm?.elements.fullDay;
+  const toggleBlockTimes = () => {
+    const isFullDay = fullDayInput?.checked !== false;
+    if (blockForm?.elements.startTime) blockForm.elements.startTime.disabled = isFullDay;
+    if (blockForm?.elements.endTime) blockForm.elements.endTime.disabled = isFullDay;
+  };
+  fullDayInput?.addEventListener("change", toggleBlockTimes);
+  toggleBlockTimes();
+
+  blockForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const validation = getValidatedAvailabilityBlock(root);
+
+    if (!validation.valid) {
+      toast(validation.message);
+      return;
+    }
+
+    try {
+      await createAvailabilityBlock(validation.block);
+      toast("Date block added.");
+      loadDoctorDashboard(root, navigate, session, section);
+    } catch (error) {
+      toast(error.message);
+      if (error.status === 401 || error.status === 403) {
+        navigate("/login");
+      }
+    }
+  });
+
+  root.querySelectorAll("[data-delete-block]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      if (!window.confirm("Remove this availability block?")) {
+        return;
+      }
+
+      try {
+        await deleteAvailabilityBlock(button.dataset.deleteBlock);
+        toast("Date block removed.");
+        loadDoctorDashboard(root, navigate, session, section);
+      } catch (error) {
+        toast(error.message);
+        if (error.status === 401 || error.status === 403) {
+          navigate("/login");
+        }
+      }
+    });
   });
 
   root.querySelectorAll("[data-booking-status]").forEach((button) => {
@@ -514,6 +591,27 @@ function bindDoctorActions(root, navigate, session, section) {
       }
     });
   });
+}
+
+async function loadDoctorSchedulingState(section) {
+  if (section !== "availability") {
+    return { rules: [], exceptions: [] };
+  }
+
+  try {
+    const [rules, exceptions] = await Promise.all([
+      fetchAvailabilityRules(),
+      fetchAvailabilityBlocks()
+    ]);
+
+    return { rules, exceptions };
+  } catch (error) {
+    if (error.status === 404) {
+      return { rules: [], exceptions: [] };
+    }
+
+    throw error;
+  }
 }
 
 function bindRetry(root, navigate, session, section) {

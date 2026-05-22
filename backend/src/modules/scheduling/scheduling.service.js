@@ -24,22 +24,100 @@ export async function getDoctorSlots({ doctorId, date }) {
   return getAvailableSlotsForDoctor(doctor, { date });
 }
 
+export async function listOwnAvailabilityRules(user) {
+  const doctor = await getDoctorForSchedulingUser(user);
+  const rules = await DoctorAvailabilityRule.find({ doctorId: doctor._id })
+    .sort({ weekday: 1, startTime: 1 })
+    .lean();
+
+  return {
+    doctorId: String(doctor._id),
+    rules: (rules.length ? rules : legacyAvailabilityToAllRules(doctor)).map(serializeRule)
+  };
+}
+
+export async function replaceOwnAvailabilityRules(user, payload = {}) {
+  const doctor = await getDoctorForSchedulingUser(user);
+  const rules = normalizeRulesPayload(payload.rules || payload.availabilityRules || []);
+  validateRuleSet(rules);
+
+  await DoctorAvailabilityRule.deleteMany({ doctorId: doctor._id });
+
+  if (rules.length) {
+    await DoctorAvailabilityRule.insertMany(
+      rules.map((rule) => ({ ...rule, doctorId: doctor._id })),
+      { ordered: false }
+    );
+  }
+
+  doctor.availability = rulesToLegacyAvailability(rules);
+  await doctor.save();
+
+  return listOwnAvailabilityRules(user);
+}
+
+export async function listOwnAvailabilityExceptions(user) {
+  const doctor = await getDoctorForSchedulingUser(user);
+  const exceptions = await AvailabilityException.find({ doctorId: doctor._id })
+    .sort({ date: 1, startTime: 1 })
+    .lean();
+
+  return {
+    doctorId: String(doctor._id),
+    exceptions: exceptions.map(serializeException)
+  };
+}
+
+export async function createOwnAvailabilityException(user, payload = {}) {
+  const doctor = await getDoctorForSchedulingUser(user);
+  const exceptionPayload = normalizeExceptionPayload(payload);
+
+  await assertNoDuplicateException(doctor._id, exceptionPayload);
+
+  const exception = await AvailabilityException.create({
+    doctorId: doctor._id,
+    ...exceptionPayload
+  });
+
+  return serializeException(exception);
+}
+
+export async function deleteOwnAvailabilityException(user, exceptionId) {
+  const doctor = await getDoctorForSchedulingUser(user);
+
+  if (!mongoose.isValidObjectId(exceptionId)) {
+    throw createHttpError(400, "Availability block id is invalid.");
+  }
+
+  const exception = await AvailabilityException.findOneAndDelete({
+    _id: exceptionId,
+    doctorId: doctor._id
+  });
+
+  if (!exception) {
+    throw createHttpError(404, "Availability block not found.");
+  }
+
+  return serializeException(exception);
+}
+
 export async function getAvailableSlotsForDoctor(doctorOrId, { date }) {
   const doctor = await resolveDoctor(doctorOrId);
   const dateKey = normalizeDateKey(date);
   const rules = await getRulesForDoctor(doctor, dateKey);
   const generatedSlots = generateSlotsForDate(rules, dateKey);
   const exceptionSlots = await applyExceptions(doctor, generatedSlots, dateKey, rules);
-  const bookings = await findBookingsForGeneratedDate(doctor._id, dateKey, exceptionSlots);
-  const availableSlots = removeOccupiedSlots(exceptionSlots, bookings);
-  const bookedSlots = exceptionSlots.filter((slot) => !availableSlots.includes(slot));
+  const futureSlots = removePastSlots(exceptionSlots);
+  const bookings = await findBookingsForGeneratedDate(doctor._id, dateKey, futureSlots);
+  const availableSlots = removeOccupiedSlots(futureSlots, bookings);
+  const bookedSlots = futureSlots.filter((slot) => !availableSlots.includes(slot));
 
   return {
     doctorId: String(doctor._id),
     date: dateKey,
     day: weekdayForDateKey(dateKey),
     timezone: getPrimaryTimezone(rules),
-    slots: exceptionSlots.map((slot) => slot.slot),
+    slots: futureSlots.map((slot) => slot.slot),
     bookedSlots: bookedSlots.map((slot) => slot.slot),
     availableSlots: availableSlots.map((slot) => slot.slot),
     slotDetails: availableSlots.map(serializeSlot)
@@ -47,10 +125,20 @@ export async function getAvailableSlotsForDoctor(doctorOrId, { date }) {
 }
 
 export async function resolveAvailableBookingSlot(doctor, payload = {}) {
-  const dateKey = normalizeDateKey(payload.bookingDate || payload.date || payload.startDateTime);
-  const slotTime = normalizeTime(payload.slot || payload.time || extractUtcTime(payload.startDateTime));
+  const requestedRange = parseRequestedRange(payload);
+  const dateKey = normalizeDateKey(payload.bookingDate || payload.date || requestedRange?.startDateTime || payload.startDateTime);
+  const slotTime = normalizeTime(payload.slot || payload.time || requestedRange?.slot || extractUtcTime(payload.startDateTime));
   const availability = await getAvailableSlotsForDoctor(doctor, { date: dateKey });
-  const slot = availability.slotDetails.find((candidate) => candidate.slot === slotTime);
+  const slot = availability.slotDetails.find((candidate) => {
+    if (requestedRange) {
+      return (
+        new Date(candidate.startDateTime).getTime() === requestedRange.startDateTime.getTime() &&
+        new Date(candidate.endDateTime).getTime() === requestedRange.endDateTime.getTime()
+      );
+    }
+
+    return candidate.slot === slotTime;
+  });
 
   if (!slot) {
     throw createHttpError(400, "This appointment time is not available.");
@@ -116,12 +204,133 @@ async function getBookableDoctor(doctorId) {
   return doctor;
 }
 
+async function getDoctorForSchedulingUser(user) {
+  if (!user || user.role !== "doctor") {
+    throw createHttpError(403, "Only doctor accounts can manage availability.");
+  }
+
+  const doctor = await Doctor.findOne({
+    $or: [{ userId: user._id }, { email: user.email }]
+  });
+
+  if (!doctor) {
+    throw createHttpError(404, "Create your doctor profile before setting availability.");
+  }
+
+  return doctor;
+}
+
 async function resolveDoctor(doctorOrId) {
   if (doctorOrId && typeof doctorOrId === "object" && doctorOrId._id) {
     return doctorOrId;
   }
 
   return getBookableDoctor(doctorOrId);
+}
+
+function normalizeRulesPayload(rules) {
+  if (!Array.isArray(rules)) {
+    throw createHttpError(400, "Availability rules must be an array.");
+  }
+
+  return rules.map((rule) => {
+    const normalized = {
+      weekday: normalizeWeekday(rule.weekday || rule.day),
+      startTime: normalizeTime(rule.startTime),
+      endTime: normalizeTime(rule.endTime),
+      slotDuration: normalizeSlotDuration(rule.slotDuration),
+      timezone: normalizeTimezone(rule.timezone || DEFAULT_TIMEZONE),
+      isActive: rule.isActive !== false
+    };
+
+    if (normalized.startTime >= normalized.endTime) {
+      throw createHttpError(400, "Availability end time must be after start time.");
+    }
+
+    return normalized;
+  });
+}
+
+function validateRuleSet(rules) {
+  const seen = new Set();
+  const groupedRules = new Map();
+
+  for (const rule of rules.filter((item) => item.isActive)) {
+    const duplicateKey = `${rule.weekday}:${rule.timezone}:${rule.startTime}:${rule.endTime}:${rule.slotDuration}`;
+
+    if (seen.has(duplicateKey)) {
+      throw createHttpError(400, "Duplicate availability windows are not allowed.");
+    }
+
+    seen.add(duplicateKey);
+    const groupKey = `${rule.weekday}:${rule.timezone}`;
+    const group = groupedRules.get(groupKey) || [];
+    group.push(rule);
+    groupedRules.set(groupKey, group);
+  }
+
+  for (const group of groupedRules.values()) {
+    const sorted = group.sort((left, right) => minutesFromTime(left.startTime) - minutesFromTime(right.startTime));
+
+    for (let index = 1; index < sorted.length; index += 1) {
+      const previous = sorted[index - 1];
+      const current = sorted[index];
+
+      if (minutesFromTime(previous.endTime) > minutesFromTime(current.startTime)) {
+        throw createHttpError(400, `Availability windows overlap on ${current.weekday}.`);
+      }
+    }
+  }
+}
+
+function normalizeExceptionPayload(payload) {
+  const dateKey = normalizeDateKey(payload.date);
+  const date = new Date(`${dateKey}T00:00:00.000Z`);
+  const type = String(payload.type || "blocked").trim().toLowerCase();
+
+  if (type !== "blocked") {
+    throw createHttpError(400, "Only blocked availability exceptions can be created here.");
+  }
+
+  if (date < todayUtc()) {
+    throw createHttpError(400, "Past dates cannot be blocked.");
+  }
+
+  const startTime = String(payload.startTime || "").trim();
+  const endTime = String(payload.endTime || "").trim();
+
+  if ((startTime && !endTime) || (!startTime && endTime)) {
+    throw createHttpError(400, "Availability blocks require both start and end times.");
+  }
+
+  const normalizedStart = startTime ? normalizeTime(startTime) : "";
+  const normalizedEnd = endTime ? normalizeTime(endTime) : "";
+
+  if (normalizedStart && normalizedStart >= normalizedEnd) {
+    throw createHttpError(400, "Availability block end time must be after start time.");
+  }
+
+  return {
+    date,
+    type,
+    startTime: normalizedStart,
+    endTime: normalizedEnd,
+    reason: cleanString(payload.reason).slice(0, 300)
+  };
+}
+
+async function assertNoDuplicateException(doctorId, exceptionPayload) {
+  const existing = await AvailabilityException.findOne({
+    doctorId,
+    date: exceptionPayload.date,
+    type: exceptionPayload.type,
+    startTime: exceptionPayload.startTime,
+    endTime: exceptionPayload.endTime
+  }).select("_id");
+
+  if (existing) {
+    throw createHttpError(400, "This availability block already exists.");
+  }
 }
 
 async function getRulesForDoctor(doctor, dateKey) {
@@ -159,6 +368,10 @@ function legacyAvailabilityToRules(doctor, weekday) {
       isActive: true
     };
   });
+}
+
+function legacyAvailabilityToAllRules(doctor) {
+  return WEEK_DAYS.flatMap((weekday) => legacyAvailabilityToRules(doctor, weekday));
 }
 
 async function applyExceptions(doctor, slots, dateKey, rules) {
@@ -262,6 +475,31 @@ function serializeSlot(slot) {
   };
 }
 
+function serializeRule(rule) {
+  return {
+    id: String(rule.id || rule._id || ""),
+    weekday: rule.weekday,
+    startTime: rule.startTime,
+    endTime: rule.endTime,
+    slotDuration: Number(rule.slotDuration || 30),
+    timezone: rule.timezone || DEFAULT_TIMEZONE,
+    isActive: rule.isActive !== false
+  };
+}
+
+function serializeException(exception) {
+  const raw = typeof exception.toJSON === "function" ? exception.toJSON() : exception;
+
+  return {
+    id: String(raw.id || raw._id || ""),
+    date: normalizeDateKey(raw.date),
+    type: raw.type || "blocked",
+    startTime: raw.startTime || "",
+    endTime: raw.endTime || "",
+    reason: raw.reason || ""
+  };
+}
+
 function getPrimaryTimezone(rules) {
   return rules.find((rule) => rule.timezone)?.timezone || DEFAULT_TIMEZONE;
 }
@@ -293,6 +531,28 @@ function normalizeTime(value) {
   }
 }
 
+function normalizeSlotDuration(value) {
+  const duration = Number(value || 30);
+
+  if (!Number.isFinite(duration) || duration < 5 || duration > 240) {
+    throw createHttpError(400, "Slot duration must be between 5 and 240 minutes.");
+  }
+
+  return duration;
+}
+
+function normalizeTimezone(value) {
+  const timezone = cleanString(value) || DEFAULT_TIMEZONE;
+
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: timezone });
+  } catch {
+    throw createHttpError(400, "Timezone must be a valid IANA timezone.");
+  }
+
+  return timezone;
+}
+
 function dedupeSlots(slots) {
   const accepted = [];
   const seen = new Set();
@@ -312,6 +572,79 @@ function dedupeSlots(slots) {
   return accepted;
 }
 
+function removePastSlots(slots) {
+  const now = new Date();
+  return slots.filter((slot) => slot.endDateTime > now);
+}
+
+function parseRequestedRange(payload) {
+  if (!payload.startDateTime && !payload.endDateTime) {
+    return null;
+  }
+
+  if (!payload.startDateTime || !payload.endDateTime) {
+    throw createHttpError(400, "Appointment start and end times are required.");
+  }
+
+  const startDateTime = new Date(payload.startDateTime);
+  const endDateTime = new Date(payload.endDateTime);
+
+  if (Number.isNaN(startDateTime.getTime()) || Number.isNaN(endDateTime.getTime())) {
+    throw createHttpError(400, "Appointment time is invalid.");
+  }
+
+  if (startDateTime < new Date()) {
+    throw createHttpError(400, "Past appointment times cannot be booked.");
+  }
+
+  if (startDateTime >= endDateTime) {
+    throw createHttpError(400, "Appointment end time must be after start time.");
+  }
+
+  return {
+    startDateTime,
+    endDateTime,
+    slot: startDateTime.toISOString().slice(11, 16)
+  };
+}
+
+function rulesToLegacyAvailability(rules) {
+  const grouped = new Map();
+
+  for (const rule of rules.filter((item) => item.isActive)) {
+    const slots = grouped.get(rule.weekday) || [];
+    let cursor = rule.startTime;
+
+    while (cursor < rule.endTime) {
+      const next = addMinutesToTime(cursor, rule.slotDuration);
+
+      if (next <= cursor || next > rule.endTime) {
+        break;
+      }
+
+      slots.push(cursor);
+      cursor = next;
+    }
+
+    grouped.set(rule.weekday, slots);
+  }
+
+  return WEEK_DAYS.map((day) => ({
+    day,
+    slots: Array.from(new Set(grouped.get(day) || [])).sort()
+  })).filter((entry) => entry.slots.length > 0);
+}
+
+function minutesFromTime(time) {
+  const [hour, minute] = normalizeTime(time).split(":").map(Number);
+  return hour * 60 + minute;
+}
+
+function todayUtc() {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
 function extractUtcTime(value) {
   if (!value) {
     return "";
@@ -324,4 +657,8 @@ function extractUtcTime(value) {
   }
 
   return date.toISOString().slice(11, 16);
+}
+
+function cleanString(value) {
+  return String(value || "").trim();
 }
