@@ -27,6 +27,14 @@ const bookingSchema = new mongoose.Schema({
     trim: true,
     match: [SLOT_PATTERN, "Slot must use HH:mm 24-hour format."]
   },
+  startDateTime: {
+    type: Date,
+    index: true
+  },
+  endDateTime: {
+    type: Date,
+    index: true
+  },
   status: {
     type: String,
     enum: ["pending", "confirmed", "completed", "cancelled"],
@@ -70,6 +78,43 @@ bookingSchema.index(
     }
   }
 );
+
+bookingSchema.index(
+  { doctorId: 1, startDateTime: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      status: { $in: ACTIVE_BOOKING_STATUSES },
+      startDateTime: { $exists: true }
+    }
+  }
+);
+
+bookingSchema.index({ doctorId: 1, startDateTime: 1, endDateTime: 1, status: 1 });
+
+bookingSchema.pre("validate", function normalizeBookingRange(next) {
+  if (this.bookingDate) {
+    const bookingDate = new Date(this.bookingDate);
+    if (!Number.isNaN(bookingDate.getTime())) {
+      this.bookingDate = new Date(Date.UTC(bookingDate.getUTCFullYear(), bookingDate.getUTCMonth(), bookingDate.getUTCDate()));
+    }
+  }
+
+  if (!this.startDateTime && this.bookingDate && !Number.isNaN(new Date(this.bookingDate).getTime()) && this.slot) {
+    const dateKey = this.bookingDate.toISOString().slice(0, 10);
+    this.startDateTime = new Date(`${dateKey}T${this.slot}:00.000Z`);
+  }
+
+  if (!this.endDateTime && this.startDateTime) {
+    this.endDateTime = new Date(this.startDateTime.getTime() + 30 * 60 * 1000);
+  }
+
+  if (this.startDateTime && this.endDateTime && this.startDateTime >= this.endDateTime) {
+    this.invalidate("endDateTime", "Booking end time must be after start time.");
+  }
+
+  return next();
+});
 
 bookingSchema.virtual("date").get(function getDate() {
   return this.bookingDate;

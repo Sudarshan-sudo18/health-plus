@@ -1,15 +1,11 @@
 import mongoose from "mongoose";
 import { Booking } from "../models/Booking.js";
 import { Doctor } from "../models/Doctor.js";
-import {
-  ACTIVE_BOOKING_STATUSES,
-  assertNotPastDate,
-  getDateBounds,
-  getWeeklySlotsForDate,
-  normalizeSlot
-} from "./availability.service.js";
+import { assertNotPastDate, normalizeSlot } from "./availability.service.js";
 import { serializeDoctor } from "./doctor.service.js";
 import { createHttpError } from "../utils/httpError.js";
+import { assertNoBookingOverlap } from "../src/modules/scheduling/bookingConflict.service.js";
+import { resolveAvailableBookingSlot } from "../src/modules/scheduling/scheduling.service.js";
 
 const bookingPopulate = [
   { path: "patientId", select: "name email role" },
@@ -24,8 +20,8 @@ export async function createBookingForPatient(user, payload = {}) {
   assertRole(user, "patient", "Only patients can create bookings.");
 
   const doctorId = String(payload.doctorId || "").trim();
-  const bookingDate = assertNotPastDate(payload.bookingDate || payload.date);
-  const slot = normalizeSlot(payload.slot || payload.time);
+  const bookingDate = assertNotPastDate(payload.bookingDate || payload.date || payload.startDateTime);
+  const slot = normalizeSlot(payload.slot || payload.time || extractUtcTime(payload.startDateTime));
 
   if (!mongoose.isValidObjectId(doctorId)) {
     throw createHttpError(400, "Doctor id is required and must be valid.");
@@ -41,20 +37,28 @@ export async function createBookingForPatient(user, payload = {}) {
     throw createHttpError(403, "This doctor is not currently available for bookings.");
   }
 
-  const weeklySlots = getWeeklySlotsForDate(doctor.availability, bookingDate);
+  const scheduledSlot = await resolveAvailableBookingSlot(doctor, {
+    ...payload,
+    bookingDate,
+    slot
+  });
 
-  if (!weeklySlots.includes(slot)) {
-    throw createHttpError(400, "This slot is not available in the doctor's weekly schedule.");
-  }
-
-  await assertSlotIsOpen(doctor._id, bookingDate, slot);
+  await assertNoBookingOverlap({
+    doctorId: doctor._id,
+    startDateTime: scheduledSlot.startDateTime,
+    endDateTime: scheduledSlot.endDateTime,
+    legacyDate: scheduledSlot.bookingDate,
+    legacySlot: scheduledSlot.slot
+  });
 
   try {
     const booking = await Booking.create({
       patientId: user._id,
       doctorId: doctor._id,
-      bookingDate,
-      slot,
+      bookingDate: scheduledSlot.bookingDate,
+      slot: scheduledSlot.slot,
+      startDateTime: scheduledSlot.startDateTime,
+      endDateTime: scheduledSlot.endDateTime,
       notes: cleanString(payload.notes)
     });
 
@@ -144,23 +148,9 @@ export async function waiveBookingPaymentByAdmin(bookingId) {
   return populateBooking(booking);
 }
 
-async function assertSlotIsOpen(doctorId, bookingDate, slot) {
-  const { start, end } = getDateBounds(bookingDate);
-  const existingBooking = await Booking.findOne({
-    doctorId,
-    bookingDate: { $gte: start, $lt: end },
-    slot,
-    status: { $in: ACTIVE_BOOKING_STATUSES }
-  }).select("_id");
-
-  if (existingBooking) {
-    throw createHttpError(409, "This slot is already booked.");
-  }
-}
-
 async function findBookings(filter) {
   const bookings = await Booking.find(filter)
-    .sort({ bookingDate: -1, slot: 1 })
+    .sort({ startDateTime: -1, bookingDate: -1, slot: 1 })
     .populate(bookingPopulate);
 
   return bookings.map((booking) => serializeBooking(booking));
@@ -204,6 +194,8 @@ function serializeBooking(booking) {
     date: raw.bookingDate,
     slot: raw.slot,
     time: raw.slot,
+    startDateTime: raw.startDateTime,
+    endDateTime: raw.endDateTime,
     status: raw.status,
     paymentStatus: raw.paymentStatus,
     notes: raw.notes || "",
@@ -250,4 +242,18 @@ function assertRole(user, role, message) {
 
 function cleanString(value) {
   return String(value || "").trim();
+}
+
+function extractUtcTime(value) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toISOString().slice(11, 16);
 }

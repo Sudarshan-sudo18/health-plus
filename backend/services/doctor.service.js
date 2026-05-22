@@ -1,16 +1,18 @@
 import mongoose from "mongoose";
 import { Doctor } from "../models/Doctor.js";
-import {
-  getBookedSlotsByDoctor,
-  normalizeAvailability,
-  normalizeBookingDate,
-  withAvailabilityForDate
-} from "./availability.service.js";
+import { normalizeAvailability } from "./availability.service.js";
 import { createHttpError } from "../utils/httpError.js";
+import {
+  getAvailableSlotsForDoctor,
+  replaceDoctorAvailabilityRulesFromWeeklyAvailability
+} from "../src/modules/scheduling/scheduling.service.js";
 
 export async function upsertOwnDoctorProfile(user, payload = {}) {
   assertDoctorUser(user);
   assertProfileEmail(user, payload.email);
+  const shouldRefreshAvailabilityRules =
+    Object.prototype.hasOwnProperty.call(payload, "availability") ||
+    Object.prototype.hasOwnProperty.call(payload, "consultationDuration");
 
   const profilePayload = {
     userId: user._id,
@@ -30,7 +32,7 @@ export async function upsertOwnDoctorProfile(user, payload = {}) {
     languagesSpoken: normalizeStringList(payload.languagesSpoken)
   };
 
-  if (payload.availability) {
+  if (Object.prototype.hasOwnProperty.call(payload, "availability")) {
     profilePayload.availability = normalizeAvailability(payload.availability);
   }
 
@@ -46,6 +48,11 @@ export async function upsertOwnDoctorProfile(user, payload = {}) {
   }
 
   await doctor.save();
+
+  if (shouldRefreshAvailabilityRules) {
+    await replaceDoctorAvailabilityRulesFromWeeklyAvailability(doctor, doctor.availability);
+  }
+
   return serializeDoctor(doctor);
 }
 
@@ -78,6 +85,8 @@ export async function updateOwnAvailability(user, availability) {
     throw createHttpError(404, "Create your doctor profile before setting availability.");
   }
 
+  await replaceDoctorAvailabilityRulesFromWeeklyAvailability(doctor, normalizedAvailability);
+
   return serializeDoctor(doctor);
 }
 
@@ -92,15 +101,14 @@ export async function listPublicDoctors({ date } = {}) {
     return publicDoctors;
   }
 
-  const bookingDate = normalizeBookingDate(date);
-  const bookedSlots = await getBookedSlotsByDoctor(
-    doctors.map((doctor) => doctor._id),
-    bookingDate
+  const availabilityByDoctor = await Promise.all(
+    doctors.map((doctor) => getAvailableSlotsForDoctor(doctor, { date }))
   );
 
-  return publicDoctors.map((doctor) =>
-    withAvailabilityForDate(doctor, bookingDate, bookedSlots.get(doctor.id))
-  );
+  return publicDoctors.map((doctor, index) => ({
+    ...doctor,
+    availabilityForDate: toPublicAvailabilityForDate(availabilityByDoctor[index])
+  }));
 }
 
 export async function getPublicDoctorById(id, { date } = {}) {
@@ -118,9 +126,11 @@ export async function getPublicDoctorById(id, { date } = {}) {
     return publicDoctor;
   }
 
-  const bookingDate = normalizeBookingDate(date);
-  const bookedSlots = await getBookedSlotsByDoctor([doctor._id], bookingDate);
-  return withAvailabilityForDate(publicDoctor, bookingDate, bookedSlots.get(publicDoctor.id));
+  const availability = await getAvailableSlotsForDoctor(doctor, { date });
+  return {
+    ...publicDoctor,
+    availabilityForDate: toPublicAvailabilityForDate(availability)
+  };
 }
 
 export async function listAdminDoctors() {
@@ -320,4 +330,15 @@ function normalizeImage(value) {
     throw createHttpError(400, "Profile picture must be an image.");
   }
   return image;
+}
+
+function toPublicAvailabilityForDate(availability) {
+  return {
+    date: availability.date,
+    day: availability.day,
+    slots: availability.slots,
+    bookedSlots: availability.bookedSlots,
+    availableSlots: availability.availableSlots,
+    slotDetails: availability.slotDetails
+  };
 }
