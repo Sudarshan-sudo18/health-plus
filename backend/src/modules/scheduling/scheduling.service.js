@@ -3,9 +3,10 @@ import { Booking } from "../../../models/Booking.js";
 import { Doctor } from "../../../models/Doctor.js";
 import { User } from "../../../models/User.js";
 import { createHttpError } from "../../../utils/httpError.js";
+import { ACTIVE_BOOKING_STATUSES } from "../../../constants/bookingLifecycle.js";
 import { DoctorAvailabilityRule } from "./availability.model.js";
 import { AvailabilityException } from "./availabilityException.model.js";
-import { UPCOMING_BOOKING_STATUSES, getBookingRange, removeOccupiedSlots } from "./bookingConflict.service.js";
+import { getBookingRange, removeOccupiedSlots } from "./bookingConflict.service.js";
 import {
   addMinutesToTime,
   combineDateAndTime,
@@ -451,7 +452,7 @@ async function findBookingsForGeneratedDate(doctorId, dateKey, slots) {
 
   return Booking.find({
     doctorId,
-    status: { $in: UPCOMING_BOOKING_STATUSES },
+    status: { $in: ACTIVE_BOOKING_STATUSES },
     $or: [
       {
         startDateTime: { $lt: generatedEnd },

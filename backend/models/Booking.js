@@ -1,6 +1,10 @@
 import mongoose from "mongoose";
+import {
+  ACTIVE_BOOKING_STATUSES,
+  BOOKING_STATUS_VALUES,
+  DEFAULT_BOOKING_STATUS
+} from "../constants/bookingLifecycle.js";
 
-const ACTIVE_BOOKING_STATUSES = ["upcoming", "pending", "confirmed"];
 const SLOT_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 const bookingSchema = new mongoose.Schema({
@@ -37,8 +41,8 @@ const bookingSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ["upcoming", "pending", "confirmed", "completed", "cancelled"],
-    default: "upcoming",
+    enum: BOOKING_STATUS_VALUES,
+    default: DEFAULT_BOOKING_STATUS,
     index: true
   },
   paymentStatus: {

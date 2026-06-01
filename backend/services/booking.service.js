@@ -8,11 +8,17 @@ import { createHttpError } from "../utils/httpError.js";
 import { assertNoBookingOverlap } from "../src/modules/scheduling/bookingConflict.service.js";
 import { resolveAvailableBookingSlot } from "../src/modules/scheduling/scheduling.service.js";
 import {
+  BOOKING_STATUS,
+  DEFAULT_BOOKING_STATUS,
+  normalizeLifecycleStatus,
+  normalizeRequestedLifecycleStatus,
+  reconcileBookingLifecycle,
+  reconcileExpiredBookings
+} from "./bookingLifecycle.service.js";
+import {
   notifyBookingCancelled,
   notifyBookingCreated
 } from "./notification.service.js";
-
-export const UPCOMING_BOOKING_STATUSES = ["upcoming", "pending", "confirmed"];
 
 const bookingPopulate = [
   { path: "patientId", select: "name email role" },
@@ -67,7 +73,7 @@ export async function createBookingForPatient(user, payload = {}) {
       slot: scheduledSlot.slot,
       startDateTime: scheduledSlot.startDateTime,
       endDateTime: scheduledSlot.endDateTime,
-      status: "upcoming",
+      status: DEFAULT_BOOKING_STATUS,
       notes: cleanString(payload.notes)
     });
 
@@ -136,9 +142,9 @@ export async function updateBookingStatusByDoctor(user, bookingId, nextStatus, r
     throw createHttpError(403, "You cannot update another doctor's booking.");
   }
 
-  const status = normalizeRequestedStatus(nextStatus);
+  const status = normalizeRequestedLifecycleStatus(nextStatus);
 
-  if (!["upcoming", "completed", "cancelled"].includes(status)) {
+  if (![BOOKING_STATUS.UPCOMING, BOOKING_STATUS.COMPLETED, BOOKING_STATUS.CANCELLED].includes(status)) {
     throw createHttpError(400, "Invalid booking status update.");
   }
 
@@ -146,7 +152,7 @@ export async function updateBookingStatusByDoctor(user, bookingId, nextStatus, r
     throw createHttpError(400, `Cannot update booking from ${booking.status} to ${status}.`);
   }
 
-  if (status === "cancelled") {
+  if (status === BOOKING_STATUS.CANCELLED) {
     return cancelBooking(booking, "doctor", reason);
   }
 
@@ -163,6 +169,8 @@ export async function waiveBookingPaymentByAdmin(bookingId) {
 }
 
 async function findBookings(filter) {
+  await reconcileExpiredBookings(filter);
+
   const bookings = await Booking.find(filter)
     .sort({ startDateTime: -1, bookingDate: -1, slot: 1 })
     .populate(bookingPopulate);
@@ -181,21 +189,25 @@ async function getBookingById(bookingId) {
     throw createHttpError(404, "Booking not found.");
   }
 
-  return booking;
+  return reconcileBookingLifecycle(booking);
 }
 
 async function cancelBooking(booking, cancelledBy, reason) {
   const lifecycleStatus = normalizeLifecycleStatus(booking.status);
 
-  if (lifecycleStatus === "cancelled") {
+  if (lifecycleStatus === BOOKING_STATUS.CANCELLED) {
     throw createHttpError(400, "Booking is already cancelled.");
   }
 
-  if (lifecycleStatus === "completed") {
+  if (lifecycleStatus === BOOKING_STATUS.COMPLETED) {
     throw createHttpError(400, "Completed bookings cannot be cancelled.");
   }
 
-  booking.status = "cancelled";
+  if (lifecycleStatus === BOOKING_STATUS.EXPIRED) {
+    throw createHttpError(400, "Expired bookings cannot be cancelled.");
+  }
+
+  booking.status = BOOKING_STATUS.CANCELLED;
   booking.cancelledBy = cancelledBy;
   booking.cancellationReason = cleanString(reason);
   await booking.save();
@@ -256,38 +268,10 @@ function isAllowedDoctorTransition(currentStatus, nextStatus) {
   const current = normalizeLifecycleStatus(currentStatus);
 
   return (
-    (nextStatus === "cancelled" && current !== "cancelled") ||
-    (current === "upcoming" && nextStatus === "completed") ||
-    (current === "upcoming" && nextStatus === "upcoming")
+    (current === BOOKING_STATUS.UPCOMING && nextStatus === BOOKING_STATUS.CANCELLED) ||
+    (current === BOOKING_STATUS.UPCOMING && nextStatus === BOOKING_STATUS.COMPLETED) ||
+    (current === BOOKING_STATUS.UPCOMING && nextStatus === BOOKING_STATUS.UPCOMING)
   );
-}
-
-export function normalizeLifecycleStatus(status) {
-  const normalized = cleanString(status).toLowerCase();
-
-  if (["pending", "confirmed", "upcoming"].includes(normalized)) {
-    return "upcoming";
-  }
-
-  if (normalized === "completed") {
-    return "completed";
-  }
-
-  if (normalized === "cancelled") {
-    return "cancelled";
-  }
-
-  return "upcoming";
-}
-
-function normalizeRequestedStatus(status) {
-  const normalized = cleanString(status).toLowerCase();
-
-  if (["pending", "confirmed", "upcoming"].includes(normalized)) {
-    return "upcoming";
-  }
-
-  return normalized;
 }
 
 function assertRole(user, role, message) {

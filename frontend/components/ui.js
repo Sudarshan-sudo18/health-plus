@@ -1,3 +1,10 @@
+export const BOOKING_STATUS = Object.freeze({
+  UPCOMING: "upcoming",
+  COMPLETED: "completed",
+  CANCELLED: "cancelled",
+  EXPIRED: "expired"
+});
+
 export function MetricCard({ icon, label, value, note }) {
   return `
     <article class="metric-card">
@@ -475,22 +482,54 @@ export function normalizeBooking(booking) {
   };
 }
 
+export function isUpcomingBooking(booking) {
+  return getLifecycleStatus(booking) === BOOKING_STATUS.UPCOMING;
+}
+
+export function isCompletedBooking(booking) {
+  return getLifecycleStatus(booking) === BOOKING_STATUS.COMPLETED;
+}
+
+export function isCancelledBooking(booking) {
+  return getLifecycleStatus(booking) === BOOKING_STATUS.CANCELLED;
+}
+
+export function isExpiredBooking(booking) {
+  return getLifecycleStatus(booking) === BOOKING_STATUS.EXPIRED;
+}
+
+export function isPastVisitBooking(booking) {
+  return [BOOKING_STATUS.COMPLETED, BOOKING_STATUS.EXPIRED].includes(getLifecycleStatus(booking));
+}
+
 function normalizeLifecycleStatus(status) {
   const normalized = String(status || "upcoming").toLowerCase();
 
   if (["pending", "confirmed", "upcoming"].includes(normalized)) {
-    return "upcoming";
+    return BOOKING_STATUS.UPCOMING;
   }
 
-  if (normalized === "completed") {
-    return "completed";
+  if (normalized === BOOKING_STATUS.COMPLETED) {
+    return BOOKING_STATUS.COMPLETED;
   }
 
-  if (normalized === "cancelled") {
-    return "cancelled";
+  if (normalized === BOOKING_STATUS.CANCELLED) {
+    return BOOKING_STATUS.CANCELLED;
   }
 
-  return "upcoming";
+  if (normalized === BOOKING_STATUS.EXPIRED) {
+    return BOOKING_STATUS.EXPIRED;
+  }
+
+  return BOOKING_STATUS.UPCOMING;
+}
+
+function getLifecycleStatus(booking) {
+  if (typeof booking === "string") {
+    return normalizeLifecycleStatus(booking);
+  }
+
+  return normalizeLifecycleStatus(booking?.status || booking?.rawStatus);
 }
 
 function uniqueSlots(slots) {

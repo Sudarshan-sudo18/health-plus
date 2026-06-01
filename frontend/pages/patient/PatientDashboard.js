@@ -11,6 +11,9 @@ import {
   QuickActionGrid,
   escapeHtml,
   formatDateInputValue,
+  isCancelledBooking,
+  isPastVisitBooking,
+  isUpcomingBooking,
   normalizeBooking,
   toast
 } from "/components/ui.js";
@@ -79,7 +82,7 @@ function renderPatientData(data) {
     (total, doctor) => total + (doctor.availabilityForDate?.availableSlots?.length || 0),
     0
   );
-  const activeBookings = data.bookings.map(normalizeBooking).filter((booking) => booking.status === "upcoming").length;
+  const activeBookings = data.bookings.map(normalizeBooking).filter(isUpcomingBooking).length;
 
   const metrics = `
     <section class="metric-grid">
@@ -111,7 +114,7 @@ function renderPatientData(data) {
 
 function renderPatientOverview(data, metrics, openSlotCount) {
   const rows = data.bookings.map(normalizeBooking);
-  const upcoming = rows.filter((booking) => booking.status === "upcoming").slice(0, 4);
+  const upcoming = rows.filter(isUpcomingBooking).slice(0, 4);
   const recent = rows.slice(0, 4);
 
   return `
@@ -213,19 +216,39 @@ function renderDoctorBookingSection(data) {
 }
 
 function renderPatientAppointmentsSection(data) {
+  const upcomingBookings = data.bookings.filter(isUpcomingBooking);
+  const pastVisits = data.bookings.filter(isPastVisitBooking);
+  const cancelledBookings = data.bookings.filter(isCancelledBooking);
+
   return `
     <div class="section-stack">
       ${Panel({
-        eyebrow: "Booking history",
-        title: "Appointments",
+        eyebrow: "Upcoming",
+        title: "Upcoming appointments",
         children: BookingTable({
-          bookings: data.bookings,
+          bookings: upcomingBookings,
           perspective: "patient",
           actions: (row) => `
-            <button class="small-button danger-button" type="button" data-cancel-booking="${escapeHtml(row.id)}" ${row.status !== "upcoming" ? "disabled" : ""}>
-              ${row.status === "upcoming" ? "Cancel" : row.status === "cancelled" ? "Cancelled" : "Closed"}
+            <button class="small-button danger-button" type="button" data-cancel-booking="${escapeHtml(row.id)}" ${!isUpcomingBooking(row) ? "disabled" : ""}>
+              ${isUpcomingBooking(row) ? "Cancel" : row.status === "cancelled" ? "Cancelled" : "Closed"}
             </button>
           `
+        })
+      })}
+      ${Panel({
+        eyebrow: "Past visits",
+        title: "Completed and expired",
+        children: BookingTable({
+          bookings: pastVisits,
+          perspective: "patient"
+        })
+      })}
+      ${Panel({
+        eyebrow: "Cancelled",
+        title: "Cancelled appointments",
+        children: BookingTable({
+          bookings: cancelledBookings,
+          perspective: "patient"
         })
       })}
     </div>

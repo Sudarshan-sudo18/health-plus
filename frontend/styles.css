@@ -745,6 +745,11 @@ tr:last-child td {
   color: #9a3d34;
 }
 
+.status-expired {
+  background: #eef3f7;
+  color: #526879;
+}
+
 .muted-cell {
   display: block;
   margin-top: 0.2rem;
@@ -1917,6 +1922,10 @@ textarea:focus-visible {
 .status-unverified,
 .status-inactive {
   border-color: rgba(238, 108, 95, 0.25);
+}
+
+.status-expired {
+  border-color: rgba(82, 104, 121, 0.22);
 }
 
 .loading-panel {

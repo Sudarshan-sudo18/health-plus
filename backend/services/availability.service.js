@@ -1,7 +1,7 @@
 import { Booking } from "../models/Booking.js";
+import { ACTIVE_BOOKING_STATUSES } from "../constants/bookingLifecycle.js";
 import { createHttpError } from "../utils/httpError.js";
 
-export const ACTIVE_BOOKING_STATUSES = ["upcoming", "pending", "confirmed"];
 export const WEEK_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 const DAY_ALIASES = new Map([

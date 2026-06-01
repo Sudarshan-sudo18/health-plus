@@ -18,6 +18,10 @@ import {
   StatusBadge,
   escapeHtml,
   formatCurrency,
+  isCancelledBooking,
+  isCompletedBooking,
+  isExpiredBooking,
+  isUpcomingBooking,
   normalizeBooking,
   toast
 } from "/components/ui.js";
@@ -84,8 +88,9 @@ async function loadDoctorDashboard(root, navigate, session, section) {
 function renderDoctorData(data) {
   const profile = data.profile;
   const normalizedBookings = data.bookings.map(normalizeBooking);
-  const upcomingBookings = normalizedBookings.filter((booking) => booking.status === "upcoming").length;
-  const completedBookings = normalizedBookings.filter((booking) => booking.status === "completed").length;
+  const upcomingBookings = normalizedBookings.filter(isUpcomingBooking).length;
+  const completedBookings = normalizedBookings.filter(isCompletedBooking).length;
+  const expiredBookings = normalizedBookings.filter(isExpiredBooking).length;
   const patientIds = new Set(
     data.bookings
       .map((booking) => (typeof booking.patientId === "object" && booking.patientId ? booking.patientId.id || booking.patientId._id : booking.patientId))
@@ -97,7 +102,7 @@ function renderDoctorData(data) {
       ${MetricCard({ icon: "icon-shield", label: "Profile", value: profile ? profileStatusLabel(profile) : "Draft", note: profile ? formatCurrency(profile.consultationFee) : "Submit for approval" })}
       ${MetricCard({ icon: "icon-calendar", label: "Bookings", value: String(data.bookings.length), note: "All consultations" })}
       ${MetricCard({ icon: "icon-user", label: "Patients", value: String(patientIds.size), note: "Unique patients" })}
-      ${MetricCard({ icon: "icon-video", label: "Upcoming", value: String(upcomingBookings), note: `${completedBookings} completed` })}
+      ${MetricCard({ icon: "icon-video", label: "Upcoming", value: String(upcomingBookings), note: `${completedBookings} completed, ${expiredBookings} expired` })}
     </section>
   `;
 
@@ -126,7 +131,7 @@ function renderDoctorData(data) {
 
 function renderDoctorOverview(data, metrics) {
   const rows = data.bookings.map(normalizeBooking);
-  const upcoming = rows.filter((booking) => booking.status === "upcoming").slice(0, 4);
+  const upcoming = rows.filter(isUpcomingBooking).slice(0, 4);
   const recent = rows.slice(0, 4);
 
   return `
@@ -165,10 +170,16 @@ function renderDoctorOverview(data, metrics) {
 
 function renderDoctorAppointmentsSection(data) {
   const upcomingBookings = data.bookings
-    .filter((booking) => normalizeBooking(booking).status === "upcoming")
+    .filter((booking) => isUpcomingBooking(normalizeBooking(booking)))
     .sort((left, right) => new Date(left.startDateTime || left.bookingDate) - new Date(right.startDateTime || right.bookingDate));
-  const closedBookings = data.bookings
-    .filter((booking) => normalizeBooking(booking).status !== "upcoming")
+  const completedBookings = data.bookings
+    .filter((booking) => isCompletedBooking(normalizeBooking(booking)))
+    .sort((left, right) => new Date(right.startDateTime || right.bookingDate) - new Date(left.startDateTime || left.bookingDate));
+  const cancelledBookings = data.bookings
+    .filter((booking) => isCancelledBooking(normalizeBooking(booking)))
+    .sort((left, right) => new Date(right.startDateTime || right.bookingDate) - new Date(left.startDateTime || left.bookingDate));
+  const expiredBookings = data.bookings
+    .filter((booking) => isExpiredBooking(normalizeBooking(booking)))
     .sort((left, right) => new Date(right.startDateTime || right.bookingDate) - new Date(left.startDateTime || left.bookingDate));
 
   return `
@@ -183,10 +194,26 @@ function renderDoctorAppointmentsSection(data) {
         })
       })}
       ${Panel({
-        eyebrow: "History",
-        title: "Completed and cancelled",
+        eyebrow: "Completed",
+        title: "Completed appointments",
         children: BookingTable({
-          bookings: closedBookings,
+          bookings: completedBookings,
+          perspective: "doctor"
+        })
+      })}
+      ${Panel({
+        eyebrow: "Cancelled",
+        title: "Cancelled appointments",
+        children: BookingTable({
+          bookings: cancelledBookings,
+          perspective: "doctor"
+        })
+      })}
+      ${Panel({
+        eyebrow: "Expired",
+        title: "Expired appointments",
+        children: BookingTable({
+          bookings: expiredBookings,
           perspective: "doctor"
         })
       })}
@@ -376,7 +403,7 @@ function renderCompactBookings(bookings, emptyText) {
 }
 
 function renderDoctorAlerts(profile, bookings) {
-  const upcomingBookings = bookings.map(normalizeBooking).filter((booking) => booking.status === "upcoming").length;
+  const upcomingBookings = bookings.map(normalizeBooking).filter(isUpcomingBooking).length;
   const alerts = [];
 
   if (!profile) {
@@ -461,7 +488,7 @@ function renderPaymentTable(bookings) {
 }
 
 function renderDoctorBookingActions(row) {
-  const isUpcoming = row.status === "upcoming";
+  const isUpcoming = isUpcomingBooking(row);
 
   return `
     <div class="inline-actions">
