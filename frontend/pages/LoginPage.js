@@ -1,4 +1,4 @@
-import { getDashboardForRole, getSession, login, roles } from "/auth/auth.js";
+import { getDashboardForRole, getSession, login, requiresEmailVerification, roles } from "/auth/auth.js";
 import { MetricCard, escapeHtml, toast } from "/components/ui.js";
 
 export const LoginPage = {
@@ -6,6 +6,9 @@ export const LoginPage = {
   render({ query }) {
     const session = getSession();
     const deniedPath = query.get("denied");
+    const verifyNotice = query.get("verify")
+      ? `<div class="notice">Sign in to verify your email and activate your account.</div>`
+      : "";
     const deniedNotice = deniedPath
       ? `<div class="notice danger">Please sign in with the right account to access ${escapeHtml(deniedPath)}.</div>`
       : "";
@@ -31,6 +34,7 @@ export const LoginPage = {
             </div>
           </div>
           <aside class="auth-card">
+            ${verifyNotice}
             ${deniedNotice}
             ${session ? `<div class="notice">Signed in as ${escapeHtml(session.email)} with ${escapeHtml(session.role)} access.</div>` : ""}
             <form id="loginForm" class="login-form">
@@ -84,6 +88,10 @@ export const LoginPage = {
 async function performLogin(credentials, navigate) {
   try {
     const session = await login(credentials);
+    if (requiresEmailVerification(session.user)) {
+      navigate(`/verify-email?role=${encodeURIComponent(session.role)}`);
+      return;
+    }
     navigate(getDashboardForRole(session.role));
   } catch (error) {
     toast(error.message || "Login failed.");

@@ -90,6 +90,32 @@ export async function login({ email, password, role }) {
   return session;
 }
 
+export async function resendVerification(role = getRoleFromPath()) {
+  return apiFetch("/auth/resend-verification", {
+    method: "POST",
+    role
+  });
+}
+
+export async function verifyEmailCode({ code, role = getRoleFromPath() }) {
+  const response = await apiFetch("/auth/verify-email", {
+    method: "POST",
+    role,
+    body: { code }
+  });
+  assertSessionRole(role, response.user);
+  const current = getSession(role);
+  const session = {
+    ...current,
+    user: response.user,
+    role: response.user.role,
+    email: response.user.email,
+    name: response.user.name
+  };
+  writeSession(session.role, session);
+  return session;
+}
+
 export function logout(role = getRoleFromPath()) {
   migrateLegacySession();
 
@@ -146,6 +172,10 @@ export function getAccessToken(role = getRoleFromPath()) {
 
 export function getDashboardForRole(role) {
   return roles[role] ? roles[role].dashboard : "/login";
+}
+
+export function requiresEmailVerification(user) {
+  return ["doctor", "patient"].includes(user?.role) && user.isVerified !== true;
 }
 
 export function canAccess(path, session = getSession()) {

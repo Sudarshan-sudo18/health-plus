@@ -46,3 +46,14 @@ export function requireRole(...roles) {
     return next();
   };
 }
+
+export function requireVerifiedAccount(req, res, next) {
+  if (req.user && ["doctor", "patient"].includes(req.user.role) && req.user.isVerified !== true) {
+    return res.status(403).json({
+      code: "EMAIL_VERIFICATION_REQUIRED",
+      message: "Please verify your email address to continue."
+    });
+  }
+
+  return next();
+}

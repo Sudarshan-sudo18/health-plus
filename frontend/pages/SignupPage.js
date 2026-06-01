@@ -69,13 +69,20 @@ export const SignupPage = {
       event.preventDefault();
       const data = new FormData(form);
       try {
-        await register({
+        const result = await register({
           name: data.get("name"),
           role: data.get("role"),
           email: data.get("email"),
           password: data.get("password"),
           termsAccepted: data.get("termsAccepted") === "on"
         });
+        if (result.verificationRequired) {
+          toast(result.verificationEmailSent
+            ? "Account created. Check your email for the verification code."
+            : "Account created. Sign in and request a verification code.");
+          navigate(`/login?verify=${encodeURIComponent(data.get("role"))}`);
+          return;
+        }
         toast("Account created. Please log in.");
         navigate("/login");
       } catch (error) {

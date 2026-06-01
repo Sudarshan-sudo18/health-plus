@@ -1,9 +1,18 @@
-import { acceptTerms, getAccessToken, getDashboardForRole, getSession, logout, refreshMe } from "/auth/auth.js";
+import {
+  acceptTerms,
+  getAccessToken,
+  getDashboardForRole,
+  getSession,
+  logout,
+  refreshMe,
+  requiresEmailVerification
+} from "/auth/auth.js";
 import { bindLayoutActions } from "/components/layout.js";
 import { bindTermsConsent, TermsConsentModal } from "/components/terms.js";
 import { toast } from "/components/ui.js";
 import { LoginPage } from "/pages/LoginPage.js";
 import { SignupPage } from "/pages/SignupPage.js";
+import { VerifyEmailPage } from "/pages/VerifyEmailPage.js";
 import { AdminDashboard } from "/pages/admin/AdminDashboard.js";
 import { DoctorDashboard } from "/pages/doctor/DoctorDashboard.js";
 import { PatientDashboard } from "/pages/patient/PatientDashboard.js";
@@ -14,6 +23,7 @@ const routes = [
   { path: "/", page: LoginPage, public: true },
   { path: "/login", page: LoginPage, public: true },
   { path: "/signup", page: SignupPage, public: true },
+  { path: "/verify-email", page: VerifyEmailPage, verification: true },
   { path: "/admin", page: AdminDashboard, role: "admin" },
   { path: "/doctor", page: DoctorDashboard, role: "doctor" },
   { path: "/patient", page: PatientDashboard, role: "patient" }
@@ -50,6 +60,10 @@ export async function renderRoute() {
       appRoot.innerHTML = renderAuthLoading("Opening your workspace...");
       try {
         activeSession = await refreshMe(activeSession.role);
+        if (requiresEmailVerification(activeSession.user)) {
+          navigate(`/verify-email?role=${encodeURIComponent(activeSession.role)}`);
+          return;
+        }
         navigate(getDashboardForRole(activeSession.role));
       } catch {
         logout(activeSession?.role);
@@ -59,6 +73,11 @@ export async function renderRoute() {
     }
 
     renderPage(route, activeSession);
+    return;
+  }
+
+  if (route.verification) {
+    await renderVerificationRoute();
     return;
   }
 
@@ -82,6 +101,11 @@ export async function renderRoute() {
 
   if (route.role && activeSession.role !== route.role) {
     replaceRoute(getDashboardForRole(activeSession.role));
+    return;
+  }
+
+  if (requiresEmailVerification(activeSession.user)) {
+    replaceRoute(`/verify-email?role=${encodeURIComponent(route.role)}`);
     return;
   }
 
@@ -130,6 +154,36 @@ function renderAuthLoading(message) {
       </section>
     </div>
   `;
+}
+
+async function renderVerificationRoute() {
+  appRoot.innerHTML = renderAuthLoading("Checking your verification status...");
+  document.title = "Health Plus";
+
+  const query = new URLSearchParams(window.location.search);
+  const requestedRole = query.get("role");
+  let activeSession = getSession(requestedRole) || getSession();
+
+  if (!activeSession || !getAccessToken(activeSession.role)) {
+    replaceRoute("/login?verify=1");
+    return;
+  }
+
+  try {
+    activeSession = await refreshMe(activeSession.role);
+  } catch {
+    logout(activeSession?.role);
+    toast("Please log in again.");
+    replaceRoute("/login?verify=1");
+    return;
+  }
+
+  if (!requiresEmailVerification(activeSession.user)) {
+    replaceRoute(getDashboardForRole(activeSession.role));
+    return;
+  }
+
+  renderPage(findRoute("/verify-email"), activeSession);
 }
 
 function maybeBlockForTerms(session) {

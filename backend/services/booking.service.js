@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { Booking } from "../models/Booking.js";
 import { Doctor } from "../models/Doctor.js";
+import { User } from "../models/User.js";
 import { assertNotPastDate } from "./availability.service.js";
 import { serializeDoctor } from "./doctor.service.js";
 import { createHttpError } from "../utils/httpError.js";
@@ -39,6 +40,10 @@ export async function createBookingForPatient(user, payload = {}) {
   }
 
   if (!doctor.isApproved || doctor.isActive === false) {
+    throw createHttpError(403, "This doctor is not currently available for bookings.");
+  }
+
+  if (!(await isDoctorAccountVerified(doctor))) {
     throw createHttpError(403, "This doctor is not currently available for bookings.");
   }
 
@@ -301,4 +306,16 @@ async function safeNotify(callback) {
   } catch (error) {
     console.error("Notification creation failed:", error.message);
   }
+}
+
+async function isDoctorAccountVerified(doctor) {
+  const user = await User.findOne({
+    role: "doctor",
+    $or: [
+      { _id: doctor.userId },
+      { email: String(doctor.email || "").toLowerCase() }
+    ]
+  }).select("isVerified").lean();
+
+  return user?.isVerified === true;
 }

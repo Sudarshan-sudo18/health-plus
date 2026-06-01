@@ -310,6 +310,11 @@ function renderDoctorApprovalTable(doctors) {
       },
       { label: "Fee", key: "consultationFee", render: (row) => formatCurrency(row.consultationFee) },
       {
+        label: "Email",
+        key: "isEmailVerified",
+        render: (row) => StatusBadge(row.isEmailVerified ? "verified" : "unverified")
+      },
+      {
         label: "Status",
         key: "status",
         render: (row) => `
@@ -323,7 +328,9 @@ function renderDoctorApprovalTable(doctors) {
         render: (row) => `
           <div class="admin-action-stack">
             <div class="inline-actions">
-              <button class="small-button" type="button" data-approve-doctor="${escapeHtml(row.id)}" ${row.isApproved && row.isActive ? "disabled" : ""}>Approve</button>
+              <button class="small-button" type="button" data-approve-doctor="${escapeHtml(row.id)}" ${!row.isEmailVerified || (row.isApproved && row.isActive) ? "disabled" : ""}>
+                ${row.isEmailVerified ? "Approve" : "Awaiting email"}
+              </button>
               <button class="small-button danger-button" type="button" data-deactivate-doctor="${escapeHtml(row.id)}" ${!row.isActive ? "disabled" : ""}>Deactivate</button>
               <button class="small-button danger-button" type="button" data-delete-doctor="${escapeHtml(row.id)}">Remove</button>
             </div>

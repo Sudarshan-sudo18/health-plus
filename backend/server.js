@@ -33,7 +33,7 @@ app.get("/me", requireAuth, (req, res) => {
 });
 app.use("/api", apiRouter);
 
-app.get(["/", "/login", "/signup", "/admin", "/doctor", "/patient"], (req, res, next) => {
+app.get(["/", "/login", "/signup", "/verify-email", "/admin", "/doctor", "/patient"], (req, res, next) => {
   const wantsHtml = String(req.headers.accept || "").includes("text/html");
   const hasBearer = String(req.headers.authorization || "").startsWith("Bearer ");
   if (wantsHtml && !hasBearer) {
@@ -46,7 +46,7 @@ app.use("/", dashboardRouter);
 
 app.use("/assets", express.static(legacyAssetsPath));
 
-app.get(["/", "/login", "/signup", "/admin", "/doctor", "/patient"], (_, res) => {
+app.get(["/", "/login", "/signup", "/verify-email", "/admin", "/doctor", "/patient"], (_, res) => {
   res.sendFile(path.join(frontendPath, "index.html"));
 });
 

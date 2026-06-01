@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { Booking } from "../../../models/Booking.js";
 import { Doctor } from "../../../models/Doctor.js";
+import { User } from "../../../models/User.js";
 import { createHttpError } from "../../../utils/httpError.js";
 import { DoctorAvailabilityRule } from "./availability.model.js";
 import { AvailabilityException } from "./availabilityException.model.js";
@@ -199,6 +200,10 @@ async function getBookableDoctor(doctorId) {
   });
 
   if (!doctor) {
+    throw createHttpError(404, "Approved active doctor not found.");
+  }
+
+  if (!(await isBookableDoctorAccountVerified(doctor))) {
     throw createHttpError(404, "Approved active doctor not found.");
   }
 
@@ -687,4 +692,16 @@ function extractUtcTime(value) {
 
 function cleanString(value) {
   return String(value || "").trim();
+}
+
+async function isBookableDoctorAccountVerified(doctor) {
+  const user = await User.findOne({
+    role: "doctor",
+    $or: [
+      { _id: doctor.userId },
+      { email: String(doctor.email || "").toLowerCase() }
+    ]
+  }).select("isVerified").lean();
+
+  return user?.isVerified === true;
 }

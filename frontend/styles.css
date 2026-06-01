@@ -338,6 +338,43 @@ textarea {
   text-decoration: none;
 }
 
+.link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.3rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--blue-strong);
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.link-button:hover {
+  color: var(--blue);
+}
+
+.link-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.verification-card {
+  align-self: center;
+}
+
+.otp-input {
+  font-size: 1.35rem;
+  font-weight: 900;
+  letter-spacing: 0.35rem;
+  text-align: center;
+}
+
+.verification-actions {
+  align-items: center;
+}
+
 .dashboard-shell {
   min-height: calc(100vh - 8rem);
   padding: 2rem;
@@ -694,6 +731,7 @@ tr:last-child td {
 .status-confirmed,
 .status-paid,
 .status-approved,
+.status-verified,
 .status-waived {
   background: #e8f3ff;
   color: var(--blue-strong);
@@ -701,6 +739,7 @@ tr:last-child td {
 
 .status-cancelled,
 .status-rejected,
+.status-unverified,
 .status-inactive {
   background: #fff2f0;
   color: #9a3d34;
@@ -1868,12 +1907,14 @@ textarea:focus-visible {
 .status-confirmed,
 .status-completed,
 .status-paid,
+.status-verified,
 .status-waived {
   border-color: rgba(15, 124, 207, 0.18);
 }
 
 .status-cancelled,
 .status-rejected,
+.status-unverified,
 .status-inactive {
   border-color: rgba(238, 108, 95, 0.25);
 }

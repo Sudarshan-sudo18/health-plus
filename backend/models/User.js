@@ -116,6 +116,16 @@ const userSchema = new mongoose.Schema(
       required: true,
       enum: ["admin", "doctor", "patient"]
     },
+    isVerified: {
+      type: Boolean,
+      default() {
+        return this.role === "admin";
+      }
+    },
+    verifiedAt: {
+      type: Date,
+      default: null
+    },
     termsAccepted: {
       type: Boolean,
       default: false

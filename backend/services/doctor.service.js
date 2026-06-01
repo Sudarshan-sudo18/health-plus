@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { Doctor } from "../models/Doctor.js";
+import { User } from "../models/User.js";
 import { normalizeAvailability } from "./availability.service.js";
 import { createHttpError } from "../utils/httpError.js";
 import {
@@ -91,7 +92,7 @@ export async function updateOwnAvailability(user, availability) {
 }
 
 export async function listPublicDoctors({ date } = {}) {
-  const doctors = await Doctor.find(publicDoctorFilter())
+  const doctors = await Doctor.find(await publicDoctorFilter())
     .sort({ fullName: 1 })
     .lean();
 
@@ -114,7 +115,7 @@ export async function listPublicDoctors({ date } = {}) {
 export async function getPublicDoctorById(id, { date } = {}) {
   assertObjectId(id, "Doctor id is invalid.");
 
-  const doctor = await Doctor.findOne({ _id: id, ...publicDoctorFilter() }).lean();
+  const doctor = await Doctor.findOne({ _id: id, ...(await publicDoctorFilter()) }).lean();
 
   if (!doctor) {
     throw createHttpError(404, "Approved active doctor not found.");
@@ -135,21 +136,30 @@ export async function getPublicDoctorById(id, { date } = {}) {
 
 export async function listAdminDoctors() {
   const doctors = await Doctor.find().sort({ createdAt: -1 });
-  return doctors.map((doctor) => serializeDoctor(doctor));
+  const verifiedScope = await getVerifiedDoctorAccountScope();
+  return doctors.map((doctor) => ({
+    ...serializeDoctor(doctor),
+    isEmailVerified: isDoctorInVerifiedScope(doctor, verifiedScope)
+  }));
 }
 
 export async function approveDoctorById(id) {
   assertObjectId(id, "Doctor id is invalid.");
 
-  const doctor = await Doctor.findByIdAndUpdate(
-    id,
-    { isApproved: true, isActive: true, rejectionReason: "" },
-    { new: true, runValidators: true }
-  );
+  const doctor = await Doctor.findById(id);
 
   if (!doctor) {
     throw createHttpError(404, "Doctor not found.");
   }
+
+  if (!(await isDoctorAccountVerified(doctor))) {
+    throw createHttpError(403, "Doctor email verification is required before approval.");
+  }
+
+  doctor.isApproved = true;
+  doctor.isActive = true;
+  doctor.rejectionReason = "";
+  await doctor.save();
 
   return serializeDoctor(doctor);
 }
@@ -261,11 +271,49 @@ function ownDoctorFilter(user) {
   };
 }
 
-function publicDoctorFilter() {
+async function publicDoctorFilter() {
+  const verifiedScope = await getVerifiedDoctorAccountScope();
+
   return {
     isApproved: true,
-    isActive: { $ne: false }
+    isActive: { $ne: false },
+    $or: [
+      { userId: { $in: verifiedScope.userIds } },
+      { email: { $in: verifiedScope.emails } }
+    ]
   };
+}
+
+async function getVerifiedDoctorAccountScope() {
+  const users = await User.find({
+    role: "doctor",
+    isVerified: true
+  }).select("_id email").lean();
+
+  return {
+    userIds: users.map((user) => user._id),
+    userIdStrings: new Set(users.map((user) => String(user._id))),
+    emails: users.map((user) => user.email).filter(Boolean),
+    emailSet: new Set(users.map((user) => String(user.email || "").toLowerCase()).filter(Boolean))
+  };
+}
+
+async function isDoctorAccountVerified(doctor) {
+  const user = await User.findOne({
+    role: "doctor",
+    $or: [
+      { _id: doctor.userId },
+      { email: String(doctor.email || "").toLowerCase() }
+    ]
+  }).select("isVerified").lean();
+
+  return user?.isVerified === true;
+}
+
+function isDoctorInVerifiedScope(doctor, scope) {
+  const userId = String(doctor.userId || "");
+  const email = String(doctor.email || "").toLowerCase();
+  return scope.userIdStrings.has(userId) || scope.emailSet.has(email);
 }
 
 function assertProfileEmail(user, email) {
