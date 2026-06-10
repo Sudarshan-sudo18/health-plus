@@ -1,9 +1,10 @@
 import { AppLayout, getActiveSection } from "/components/layout.js";
+import { BookingCalendar, normalizeCalendarMonth } from "/components/calendar/Calendar.js";
+import { DoctorSelectionList, SlotPanel } from "/components/calendar/SlotPanel.js";
 import { bindProfilePhotoInputs, PatientProfileForm } from "/components/profile.js";
 import {
   BookingTable,
   CompactList,
-  DoctorAvailabilityCard,
   ErrorState,
   LoadingState,
   MetricCard,
@@ -18,9 +19,10 @@ import {
   toast
 } from "/components/ui.js";
 import { apiFetch } from "/services/api.js";
-import { fetchDoctorsWithSlots, normalizeScheduleDate } from "/services/scheduling.js";
+import { fetchDoctorsForBooking, normalizeScheduleDate } from "/services/scheduling.js";
 
 const PATIENT_SECTIONS = ["overview", "doctors", "appointments", "payments", "profile"];
+const BOOKING_WINDOW_DAYS = 90;
 
 export const PatientDashboard = {
   title: "Health Plus | Patient",
@@ -40,28 +42,40 @@ export const PatientDashboard = {
       root,
       navigate,
       getActiveSection(query, PATIENT_SECTIONS),
-      normalizeScheduleDate(query.get("date") || getSelectedDate(root))
+      normalizePatientBookingDate(query.get("date") || getSelectedDate(root)),
+      query.get("doctor") || getSelectedDoctorId(root),
+      normalizeCalendarMonth(query.get("month") || normalizePatientBookingDate(query.get("date") || getSelectedDate(root)))
     );
   }
 };
 
-async function loadPatientDashboard(root, navigate, section, selectedDate = getSelectedDate(root)) {
-  const normalizedDate = normalizeScheduleDate(selectedDate);
+async function loadPatientDashboard(
+  root,
+  navigate,
+  section,
+  selectedDate = getSelectedDate(root),
+  selectedDoctorId = getSelectedDoctorId(root),
+  calendarMonth = normalizeCalendarMonth(selectedDate)
+) {
+  const normalizedDate = normalizePatientBookingDate(selectedDate);
   const content = root.querySelector("#patientContent");
   content.innerHTML = LoadingState("Loading patient workspace...");
 
   try {
-    const [doctors, bookingData, profileData] = await Promise.all([
-      fetchDoctorsWithSlots(normalizedDate),
+    const [doctorResult, bookingData, profileData] = await Promise.all([
+      fetchDoctorsForBooking(normalizedDate, selectedDoctorId),
       apiFetch("/api/bookings/my"),
       apiFetch("/api/profile/me")
     ]);
 
     content.innerHTML = renderPatientData({
-      doctors,
+      doctors: doctorResult.doctors,
+      selectedDoctorId: doctorResult.selectedDoctorId,
+      selectedDoctor: doctorResult.selectedDoctor,
       bookings: bookingData.bookings || [],
       profileResult: profileData,
       selectedDate: normalizedDate,
+      calendarMonth,
       section
     });
     bindPatientActions(root, navigate, section);
@@ -87,7 +101,7 @@ function renderPatientData(data) {
   const metrics = `
     <section class="metric-grid">
       ${MetricCard({ icon: "icon-shield", label: "Approved doctors", value: String(data.doctors.length), note: "Available providers" })}
-      ${MetricCard({ icon: "icon-calendar", label: "Open slots", value: String(openSlotCount), note: "Selected date" })}
+      ${MetricCard({ icon: "icon-calendar", label: "Open slots", value: String(openSlotCount), note: "Selected doctor/date" })}
       ${MetricCard({ icon: "icon-video", label: "Upcoming bookings", value: String(activeBookings), note: "Scheduled visits" })}
       ${MetricCard({ icon: "icon-prescription", label: "Profile", value: data.profileResult?.isProfileComplete ? "Complete" : "Incomplete", note: "Care details" })}
     </section>
@@ -182,33 +196,42 @@ function renderProfileReadiness(profileResult) {
 }
 
 function renderDoctorBookingSection(data) {
+  const maxBookingDate = getMaxBookingDate();
+
   return `
     <div class="section-stack">
+      <input id="bookingDate" type="hidden" value="${escapeHtml(data.selectedDate)}">
+      <input id="selectedDoctorId" type="hidden" value="${escapeHtml(data.selectedDoctorId || "")}">
+      <div class="booking-flow-grid">
+        ${Panel({
+          eyebrow: "Doctor",
+          title: "Choose a doctor",
+          children: DoctorSelectionList({
+            doctors: data.doctors,
+            selectedDoctorId: data.selectedDoctorId
+          })
+        })}
+        ${Panel({
+          eyebrow: "Calendar",
+          title: "Select a date",
+          children: BookingCalendar({
+            selectedDate: data.selectedDate,
+            displayMonth: data.calendarMonth,
+            minDate: formatDateInputValue(),
+            maxDate: maxBookingDate
+          })
+        })}
+      </div>
       ${Panel({
-        eyebrow: "Book appointment",
-        title: "Available doctors",
-        actions: `
-          <label class="compact-field">
-            Date
-            <input id="bookingDate" type="date" value="${escapeHtml(data.selectedDate)}" min="${formatDateInputValue()}" max="${formatDateInputValue(addDays(new Date(), 30))}">
-          </label>
-        `,
+        eyebrow: "Slots",
+        title: "Confirm appointment time",
         children: `
-          ${renderDateNavigator(data.selectedDate)}
           <label class="booking-note-field">
             Consultation notes
             <textarea id="bookingNotes" rows="3" maxlength="1000" placeholder="Briefly describe the concern for the doctor"></textarea>
             <span>Shared with the doctor when you confirm a slot.</span>
           </label>
-          <div class="doctor-grid compact-grid availability-grid">
-            ${
-              data.doctors.length
-                ? data.doctors
-                    .map((doctor) => DoctorAvailabilityCard({ doctor, selectedDate: data.selectedDate, mode: "patient" }))
-                    .join("")
-                : `<div class="empty-state">No approved doctors are available for patients right now.</div>`
-            }
-          </div>
+          ${SlotPanel({ doctor: data.selectedDoctor, selectedDate: data.selectedDate })}
         `
       })}
     </div>
@@ -306,15 +329,34 @@ function bindPatientActions(root, navigate, section) {
     }
   });
 
-  const bookingDate = root.querySelector("#bookingDate");
-  bookingDate?.addEventListener("change", () => {
-    const selectedDate = normalizeScheduleDate(bookingDate.value || formatDateInputValue());
-    navigate(`/patient?section=doctors&date=${encodeURIComponent(selectedDate)}`);
+  root.querySelectorAll("[data-select-doctor]").forEach((button) => {
+    button.addEventListener("click", () => {
+      navigate(getPatientBookingUrl({
+        doctorId: button.dataset.selectDoctor,
+        selectedDate: getSelectedDate(root),
+        calendarMonth: getVisibleCalendarMonth(root)
+      }));
+    });
   });
 
-  root.querySelectorAll("[data-booking-date-shortcut]").forEach((button) => {
+  root.querySelectorAll("[data-calendar-month]").forEach((button) => {
     button.addEventListener("click", () => {
-      navigate(`/patient?section=doctors&date=${encodeURIComponent(button.dataset.bookingDateShortcut)}`);
+      navigate(getPatientBookingUrl({
+        doctorId: getSelectedDoctorId(root),
+        selectedDate: getSelectedDate(root),
+        calendarMonth: button.dataset.calendarMonth
+      }));
+    });
+  });
+
+  root.querySelectorAll("[data-calendar-date]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const selectedDate = normalizeScheduleDate(button.dataset.calendarDate || formatDateInputValue());
+      navigate(getPatientBookingUrl({
+        doctorId: getSelectedDoctorId(root),
+        selectedDate,
+        calendarMonth: normalizeCalendarMonth(selectedDate)
+      }));
     });
   });
 
@@ -366,7 +408,7 @@ function bindPatientActions(root, navigate, section) {
           }
         });
         toast("Booking created.");
-        loadPatientDashboard(root, navigate, "doctors", selectedDate);
+        loadPatientDashboard(root, navigate, "doctors", selectedDate, getSelectedDoctorId(root), getVisibleCalendarMonth(root));
       } catch (error) {
         button.disabled = false;
         button.innerHTML = originalLabel;
@@ -386,7 +428,7 @@ function bindPatientActions(root, navigate, section) {
           body: { reason: "Cancelled by patient" }
         });
         toast("Booking cancelled.");
-        loadPatientDashboard(root, navigate, section, root.querySelector("#bookingDate")?.value || formatDateInputValue());
+        loadPatientDashboard(root, navigate, section, getSelectedDate(root), getSelectedDoctorId(root), getVisibleCalendarMonth(root));
       } catch (error) {
         toast(error.message);
         if (error.status === 401 || error.status === 403) {
@@ -404,44 +446,45 @@ function bindRetry(root, navigate, section) {
 }
 
 function getSelectedDate(root) {
-  return normalizeScheduleDate(root.querySelector("#bookingDate")?.value || formatDateInputValue());
+  return normalizePatientBookingDate(root.querySelector("#bookingDate")?.value || formatDateInputValue());
 }
 
-function renderDateNavigator(selectedDate) {
-  const dates = Array.from({ length: 14 }, (_, index) => formatDateInputValue(addDays(new Date(), index)));
+function getSelectedDoctorId(root) {
+  return root.querySelector("#selectedDoctorId")?.value || "";
+}
 
-  return `
-    <div class="date-strip" aria-label="Upcoming appointment dates">
-      ${dates
-        .map((date) => `
-          <button
-            class="date-chip${date === selectedDate ? " active" : ""}"
-            type="button"
-            data-booking-date-shortcut="${escapeHtml(date)}"
-          >
-            <strong>${escapeHtml(formatDateChipDay(date))}</strong>
-            <span>${escapeHtml(formatDateChipDate(date))}</span>
-          </button>
-        `)
-        .join("")}
-    </div>
-  `;
+function getVisibleCalendarMonth(root) {
+  return normalizeCalendarMonth(root.querySelector("[data-calendar-current-month]")?.dataset.calendarCurrentMonth || getSelectedDate(root));
+}
+
+function getPatientBookingUrl({ doctorId, selectedDate, calendarMonth }) {
+  const params = new URLSearchParams({
+    section: "doctors",
+    date: normalizePatientBookingDate(selectedDate),
+    month: normalizeCalendarMonth(calendarMonth || selectedDate)
+  });
+
+  if (doctorId) {
+    params.set("doctor", doctorId);
+  }
+
+  return `/patient?${params.toString()}`;
+}
+
+function normalizePatientBookingDate(date) {
+  const normalized = normalizeScheduleDate(date);
+  const maxDate = getMaxBookingDate();
+  return normalized > maxDate ? maxDate : normalized;
+}
+
+function getMaxBookingDate() {
+  return formatDateInputValue(addDays(new Date(), BOOKING_WINDOW_DAYS));
 }
 
 function addDays(date, days) {
   const value = new Date(date);
   value.setDate(value.getDate() + days);
   return value;
-}
-
-function formatDateChipDay(dateKey) {
-  const date = new Date(`${dateKey}T00:00:00`);
-  return new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(date);
-}
-
-function formatDateChipDate(dateKey) {
-  const date = new Date(`${dateKey}T00:00:00`);
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(date);
 }
 
 function getPatientTitle(section) {

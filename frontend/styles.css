@@ -1016,6 +1016,200 @@ tr:last-child td {
   margin-bottom: 1rem;
 }
 
+.booking-flow-grid {
+  display: grid;
+  grid-template-columns: minmax(18rem, 0.42fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.doctor-selector-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.booking-doctor-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  width: 100%;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fbfdff;
+  color: inherit;
+  text-align: left;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.booking-doctor-option:hover,
+.booking-doctor-option.active {
+  border-color: rgba(15, 124, 207, 0.36);
+  background: #fff;
+  box-shadow: 0 14px 30px rgba(25, 83, 125, 0.1);
+  transform: translateY(-1px);
+}
+
+.booking-doctor-option.active {
+  box-shadow: inset 3px 0 0 var(--blue), 0 14px 30px rgba(25, 83, 125, 0.1);
+}
+
+.booking-doctor-copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.14rem;
+}
+
+.booking-doctor-copy strong,
+.booking-doctor-copy span,
+.booking-doctor-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.booking-doctor-copy span,
+.booking-doctor-copy small {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.booking-calendar-shell {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.calendar-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.calendar-title {
+  display: grid;
+  justify-items: center;
+  gap: 0.15rem;
+  text-align: center;
+}
+
+.calendar-title strong {
+  font-size: 1.05rem;
+}
+
+.calendar-title span,
+.calendar-selection {
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.calendar-nav-button {
+  font-size: 1.45rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.calendar-nav-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.calendar-weekdays span {
+  color: #678294;
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.calendar-day {
+  display: grid;
+  min-height: 4rem;
+  aspect-ratio: 1;
+  align-content: center;
+  justify-items: center;
+  gap: 0.1rem;
+  border: 1px solid rgba(204, 225, 236, 0.95);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--text);
+  font-weight: 900;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.calendar-day small {
+  color: var(--blue-strong);
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.calendar-day:hover:not(:disabled),
+.calendar-day.is-selected {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.calendar-day:hover:not(:disabled) small,
+.calendar-day.is-selected small {
+  color: #fff;
+}
+
+.calendar-day.is-today:not(.is-selected) {
+  border-color: rgba(15, 124, 207, 0.44);
+  background: var(--blue-soft);
+  color: var(--blue-strong);
+}
+
+.calendar-day.outside-month {
+  color: #8ba0ad;
+  background: #f8fcff;
+}
+
+.calendar-day.is-disabled {
+  cursor: not-allowed;
+  color: #a7b6c0;
+  background: #f1f6f9;
+  opacity: 0.72;
+}
+
+.calendar-selection {
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #f8fcff;
+}
+
+.calendar-selection strong {
+  color: var(--text);
+}
+
+.slot-panel {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.slot-panel > .availability-card {
+  box-shadow: none;
+}
+
+.slot-panel-empty span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
 .date-strip {
   display: grid;
   grid-auto-columns: minmax(5.4rem, 1fr);
@@ -1986,6 +2180,7 @@ textarea:focus-visible {
 
   .auth-hero,
   .dashboard-grid,
+  .booking-flow-grid,
   .patient-hero,
   .doctor-profile-band,
   .profile-form,
@@ -2137,6 +2332,16 @@ textarea:focus-visible {
   .availability-block-form .small-button {
     width: 100%;
     justify-content: center;
+  }
+
+  .calendar-grid,
+  .calendar-weekdays {
+    gap: 0.25rem;
+  }
+
+  .calendar-day {
+    min-height: 3.1rem;
+    font-size: 0.86rem;
   }
 
   .auth-copy {
