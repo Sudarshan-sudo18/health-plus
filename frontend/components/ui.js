@@ -115,6 +115,7 @@ export function DoctorAvailabilityCard({ doctor, selectedDate, mode = "patient" 
   const bookedSlots = availability.bookedSlots;
   const languages = doctor.languagesSpoken || doctor.languages || [];
   const emptySlotText = getSlotEmptyText({ doctor, selectedDate, availability, isApproved, isActive });
+  const providerStatus = availableSlots.length ? "available" : "unavailable";
 
   return `
     <article class="availability-card" data-doctor-card="${escapeHtml(doctorId)}">
@@ -129,6 +130,8 @@ export function DoctorAvailabilityCard({ doctor, selectedDate, mode = "patient" 
         </div>
         ${mode === "admin" ? StatusBadge(doctor.rejectionReason ? "rejected" : isActive ? (isApproved ? "approved" : "pending") : "inactive") : ""}
       </div>
+
+      ${mode === "patient" ? `<div class="provider-status-row">${StatusBadge("approved")}${StatusBadge(providerStatus)}</div>` : ""}
 
       <div class="doctor-card-meta">
         <span>${escapeHtml(doctor.qualification || "Qualification pending")}</span>

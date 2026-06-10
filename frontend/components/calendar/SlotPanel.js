@@ -1,6 +1,7 @@
 import {
   DoctorAvailabilityCard,
   DoctorAvatar,
+  StatusBadge,
   escapeHtml,
   formatCurrency,
   getRecordId
@@ -40,6 +41,7 @@ function DoctorSelectionCard({ doctor, selectedDoctorId }) {
   const fullName = doctor.fullName || doctor.name || "Doctor";
   const specialization = doctor.specialization || doctor.specialty || "General medicine";
   const isActive = doctorId === selectedDoctorId;
+  const openSlots = doctor.availabilityForDate?.availableSlots?.length || 0;
 
   return `
     <button
@@ -53,6 +55,7 @@ function DoctorSelectionCard({ doctor, selectedDoctorId }) {
         <strong>${escapeHtml(fullName)}</strong>
         <span>${escapeHtml(specialization)}</span>
         <small>${escapeHtml(formatDoctorSummary(doctor))}</small>
+        <span class="provider-badges">${StatusBadge("approved")}${doctor.availabilityForDate ? StatusBadge(openSlots ? "available" : "unavailable") : ""}</span>
       </span>
     </button>
   `;

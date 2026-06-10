@@ -1,0 +1,128 @@
+.booking-flow-grid {
+  grid-template-columns: minmax(15.5rem, 0.36fr) minmax(0, 1fr);
+  gap: 0.72rem;
+}
+
+.doctor-selector-list {
+  gap: 0.5rem;
+}
+
+.booking-doctor-option {
+  gap: 0.58rem;
+  padding: 0.62rem;
+}
+
+.booking-doctor-option .doctor-avatar {
+  width: 2.45rem;
+  height: 2.45rem;
+}
+
+.booking-doctor-copy {
+  gap: 0.08rem;
+}
+
+.booking-doctor-copy > strong {
+  font-size: 0.92rem;
+}
+
+.booking-doctor-copy > span:not(.provider-badges),
+.booking-doctor-copy > small {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.booking-doctor-copy .provider-badges {
+  margin-top: 0.18rem;
+}
+
+.booking-calendar-shell {
+  gap: 0.58rem;
+}
+
+.calendar-header {
+  gap: 0.55rem;
+}
+
+.calendar-title {
+  gap: 0.05rem;
+}
+
+.calendar-title strong {
+  font-size: 0.98rem;
+}
+
+.calendar-title span,
+.calendar-selection {
+  font-size: 0.76rem;
+}
+
+.calendar-nav-button {
+  width: 1.95rem;
+  height: 1.95rem;
+  font-size: 1.18rem;
+}
+
+.calendar-weekdays,
+.calendar-grid {
+  gap: 0.22rem;
+}
+
+.calendar-weekdays span {
+  font-size: 0.68rem;
+}
+
+.calendar-day {
+  min-height: 2.78rem;
+  gap: 0;
+  font-size: 0.82rem;
+}
+
+.calendar-day small {
+  font-size: 0.6rem;
+}
+
+.calendar-selection {
+  padding: 0.48rem 0.6rem;
+}
+
+.slot-panel {
+  gap: 0.6rem;
+}
+
+.slot-grid {
+  gap: 0.34rem;
+}
+
+.slot-button {
+  min-height: 2.12rem;
+  padding: 0.36rem 0.48rem;
+  font-size: 0.78rem;
+}
+
+.booking-note-field {
+  margin-bottom: 0.68rem;
+}
+
+.booking-note-field span {
+  font-size: 0.76rem;
+}
+
+@media (max-width: 1120px) {
+  .booking-flow-grid {
+    grid-template-columns: minmax(14rem, 0.4fr) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 780px) {
+  .booking-flow-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-day {
+    min-height: 2.58rem;
+  }
+}

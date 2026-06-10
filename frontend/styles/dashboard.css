@@ -1,0 +1,152 @@
+.section-stack {
+  gap: 0.72rem;
+}
+
+.dashboard-grid {
+  gap: 0.72rem;
+}
+
+.dashboard-grid > .panel {
+  grid-column: span 6;
+}
+
+.doctor-profile-band {
+  grid-template-columns: auto minmax(0, 1fr) minmax(11rem, 0.28fr);
+  gap: 0.72rem;
+  margin-bottom: 0.72rem;
+  padding: 0.78rem;
+}
+
+.profile-band-avatar {
+  width: 3.6rem;
+  height: 3.6rem;
+}
+
+.profile-summary {
+  padding: 0.62rem;
+  font-size: 0.82rem;
+}
+
+.profile-readiness {
+  gap: 0.16rem;
+  margin-bottom: 0.72rem;
+  padding: 0.62rem;
+}
+
+.profile-readiness span {
+  font-size: 0.82rem;
+}
+
+.profile-form,
+.availability-editor {
+  gap: 0.65rem;
+}
+
+.profile-photo-field {
+  gap: 0.72rem;
+  padding: 0.65rem;
+}
+
+.profile-photo-preview {
+  width: 4.4rem;
+  height: 4.4rem;
+}
+
+label {
+  gap: 0.32rem;
+  font-size: 0.78rem;
+}
+
+input,
+select,
+textarea {
+  min-height: 2.42rem;
+  padding: 0.58rem 0.65rem;
+}
+
+textarea {
+  line-height: 1.38;
+}
+
+.table-wrap {
+  border-radius: var(--radius);
+}
+
+th,
+td {
+  padding: 0.64rem 0.72rem;
+}
+
+th {
+  font-size: 0.72rem;
+}
+
+.muted-cell {
+  font-size: 0.76rem;
+}
+
+.booking-notes {
+  max-width: 16rem;
+  line-height: 1.38;
+}
+
+.schedule-manager {
+  gap: 0.78rem;
+}
+
+.schedule-toolbar,
+.schedule-blocks > div:first-child {
+  gap: 0.72rem;
+}
+
+.schedule-toolbar span {
+  margin-top: 0.2rem;
+  font-size: 0.82rem;
+}
+
+.weekday-schedule-card summary {
+  padding: 0.68rem 0.78rem;
+}
+
+.weekday-rule-list {
+  gap: 0.55rem;
+  padding: 0 0.78rem 0.68rem;
+}
+
+.schedule-rule-row {
+  gap: 0.55rem;
+  padding: 0.62rem;
+}
+
+.availability-block-form {
+  gap: 0.58rem;
+  padding: 0.68rem;
+}
+
+.admin-action-stack {
+  gap: 0.42rem;
+}
+
+.reject-row {
+  gap: 0.36rem;
+}
+
+@media (max-width: 1120px) {
+  .doctor-profile-band {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .doctor-profile-band .profile-summary {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 780px) {
+  .dashboard-grid > .panel {
+    grid-column: 1 / -1;
+  }
+
+  .doctor-profile-band {
+    grid-template-columns: 1fr;
+  }
+}
