@@ -7,7 +7,8 @@ export function signAccessToken(user) {
   return jwt.sign(
     {
       sub: user.id || user._id.toString(),
-      role: user.role
+      role: user.role,
+      tokenVersion: Number(user.tokenVersion || 0)
     },
     JWT_SECRET,
     { expiresIn: "2h" }
@@ -24,10 +25,14 @@ export async function requireAuth(req, res, next) {
 
   try {
     const payload = jwt.verify(token, JWT_SECRET);
-    const user = await User.findById(payload.sub);
+    const user = await User.findById(payload.sub).select("+tokenVersion");
 
     if (!user) {
       return res.status(401).json({ message: "User not found." });
+    }
+
+    if (Number(payload.tokenVersion || 0) !== Number(user.tokenVersion || 0)) {
+      return res.status(401).json({ message: "Your session has expired. Please sign in again." });
     }
 
     req.user = user;

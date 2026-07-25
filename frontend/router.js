@@ -14,6 +14,8 @@ import { toast } from "/components/ui.js";
 import { LoginPage } from "/pages/LoginPage.js";
 import { SignupPage } from "/pages/SignupPage.js";
 import { VerifyEmailPage } from "/pages/VerifyEmailPage.js";
+import { ForgotPasswordPage } from "/pages/ForgotPasswordPage.js";
+import { ResetPasswordPage } from "/pages/ResetPasswordPage.js";
 import { LandingPage } from "/pages/LandingPage.js";
 import { AdminDashboard } from "/pages/admin/AdminDashboard.js";
 import { DoctorDashboard } from "/pages/doctor/DoctorDashboard.js";
@@ -25,6 +27,8 @@ const routes = [
   { path: "/", page: LandingPage, public: true },
   { path: "/login", page: LoginPage, public: true },
   { path: "/signup", page: SignupPage, public: true },
+  { path: "/forgot-password", page: ForgotPasswordPage, public: true },
+  { path: "/reset-password", page: ResetPasswordPage, public: true },
   { path: "/verify-email", page: VerifyEmailPage, verification: true },
 ];
 

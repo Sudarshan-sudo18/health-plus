@@ -95,7 +95,10 @@ export async function getPatientBookings(user) {
 export async function getDoctorBookings(user) {
   assertRole(user, "doctor", "Only doctors can view doctor bookings.");
   const doctor = await Doctor.findOne({
-    $or: [{ userId: user._id }, { email: user.email }]
+    $or: [
+      { userId: user._id },
+      { userId: { $exists: false }, email: user.email }
+    ]
   }).select("_id").lean();
 
   if (!doctor) {
@@ -129,7 +132,10 @@ export async function updateBookingStatusByDoctor(user, bookingId, nextStatus, r
   assertRole(user, "doctor", "Only doctors can update booking status.");
 
   const doctor = await Doctor.findOne({
-    $or: [{ userId: user._id }, { email: user.email }]
+    $or: [
+      { userId: user._id },
+      { userId: { $exists: false }, email: user.email }
+    ]
   }).select("_id");
 
   if (!doctor) {
@@ -293,13 +299,10 @@ async function safeNotify(callback) {
 }
 
 async function isDoctorAccountVerified(doctor) {
-  const user = await User.findOne({
-    role: "doctor",
-    $or: [
-      { _id: doctor.userId },
-      { email: String(doctor.email || "").toLowerCase() }
-    ]
-  }).select("isVerified").lean();
+  const filter = doctor.userId
+    ? { _id: doctor.userId, role: "doctor" }
+    : { email: String(doctor.email || "").toLowerCase(), role: "doctor" };
+  const user = await User.findOne(filter).select("isVerified").lean();
 
   return user?.isVerified === true;
 }

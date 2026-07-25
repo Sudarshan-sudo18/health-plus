@@ -10,6 +10,7 @@ import { requireAuth } from "./middleware/auth.js";
 import { apiRouter } from "./routes/api.routes.js";
 import { authRouter } from "./routes/auth.routes.js";
 import { dashboardRouter } from "./routes/dashboard.routes.js";
+import { migrateUserIdentityIndexes } from "./src/modules/auth/userIdentityMigration.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -33,7 +34,7 @@ app.get("/me", requireAuth, (req, res) => {
 });
 app.use("/api", apiRouter);
 
-app.get(["/", "/login", "/signup", "/verify-email", "/admin", "/doctor", "/patient"], (req, res, next) => {
+app.get(["/", "/login", "/signup", "/verify-email", "/forgot-password", "/reset-password", "/admin", "/doctor", "/patient"], (req, res, next) => {
   const wantsHtml = String(req.headers.accept || "").includes("text/html");
   const hasBearer = String(req.headers.authorization || "").startsWith("Bearer ");
   if (wantsHtml && !hasBearer) {
@@ -46,7 +47,7 @@ app.use("/", dashboardRouter);
 
 app.use("/assets", express.static(legacyAssetsPath));
 
-app.get(["/", "/login", "/signup", "/verify-email", "/admin", "/doctor", "/patient"], (_, res) => {
+app.get(["/", "/login", "/signup", "/verify-email", "/forgot-password", "/reset-password", "/admin", "/doctor", "/patient"], (_, res) => {
   res.sendFile(path.join(frontendPath, "index.html"));
 });
 
@@ -75,6 +76,7 @@ app.use((error, req, res, next) => {
 });
 
 await connectDatabase();
+await migrateUserIdentityIndexes();
 
 app.listen(port, () => {
   console.log(`Health Plus API running at http://localhost:${port}`);

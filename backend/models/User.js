@@ -101,10 +101,8 @@ const userSchema = new mongoose.Schema(
     email: {
       type: String,
       required: true,
-      unique: true,
       lowercase: true,
-      trim: true,
-      index: true
+      trim: true
     },
     password: {
       type: String,
@@ -134,6 +132,12 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null
     },
+    tokenVersion: {
+      type: Number,
+      default: 0,
+      min: 0,
+      select: false
+    },
     profile: {
       type: userProfileSchema,
       default: () => ({})
@@ -145,6 +149,9 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// One person may use the same email for distinct portal roles, but never twice for one role.
+userSchema.index({ email: 1, role: 1 }, { unique: true, name: "email_role_unique" });
 
 userSchema.virtual("isProfileComplete").get(function getIsProfileComplete() {
   return isProfileComplete(this.role, this.profile || {});
@@ -158,6 +165,7 @@ userSchema.set("toJSON", {
     delete ret._id;
     delete ret.__v;
     delete ret.password;
+    delete ret.tokenVersion;
     return ret;
   }
 });

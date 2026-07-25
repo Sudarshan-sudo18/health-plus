@@ -65,9 +65,12 @@ export const SignupPage = {
   },
   afterRender({ navigate }, root) {
     const form = root.querySelector("#signupForm");
+    const submitButton = form.querySelector("button[type='submit']");
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const data = new FormData(form);
+      submitButton.disabled = true;
+      submitButton.textContent = "Creating account...";
       try {
         const result = await register({
           name: data.get("name"),
@@ -87,6 +90,9 @@ export const SignupPage = {
         navigate("/login");
       } catch (error) {
         toast(error.message || "Signup failed.");
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = "Create Account";
       }
     });
   }

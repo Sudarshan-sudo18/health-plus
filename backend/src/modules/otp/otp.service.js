@@ -25,7 +25,15 @@ export async function sendEmailVerificationOtp(user) {
   const expiresAt = addMinutes(now, OTP_TTL_MINUTES);
   const resendAvailableAt = addSeconds(now, OTP_RESEND_COOLDOWN_SECONDS);
 
-  await OtpChallenge.create({
+  if (isEmailDebugEnabled()) {
+    console.info("[Arogyam email debug] Verification code", JSON.stringify({
+      email: user.email,
+      role: user.role,
+      code
+    }));
+  }
+
+  const challenge = await OtpChallenge.create({
     userId: user._id,
     email: user.email,
     purpose: EMAIL_VERIFICATION_PURPOSE,
@@ -35,7 +43,12 @@ export async function sendEmailVerificationOtp(user) {
     expiresAt
   });
 
-  await sendVerificationEmail({ user, code, expiresAt });
+  try {
+    await sendVerificationEmail({ user, code, expiresAt });
+  } catch (error) {
+    await challenge.deleteOne();
+    throw error;
+  }
 
   return {
     expiresAt,
@@ -94,7 +107,7 @@ export async function verifyEmailOtp(user, code) {
 
 function assertVerificationUser(user) {
   if (!user || !["doctor", "patient"].includes(user.role)) {
-    throw createHttpError(400, "Email verification is required for doctor and patient accounts.");
+    throw createHttpError(400, "Email verification is available for doctor and patient accounts.");
   }
 }
 
@@ -132,11 +145,11 @@ async function sendVerificationEmail({ user, code, expiresAt }) {
 
   await sendEmail({
     to: user.email,
-    subject: "Verify your Health Plus email",
-    text: `Your Health Plus verification code is ${code}. It expires at ${expiryLabel}.`,
+    subject: "Verify your Arogyam email",
+    text: `Your Arogyam verification code is ${code}. It expires at ${expiryLabel}.`,
     html: `
       <div style="font-family:Arial,sans-serif;line-height:1.5;color:#0f172a">
-        <h2>Verify your Health Plus email</h2>
+        <h2>Verify your Arogyam email</h2>
         <p>Hello ${escapeHtml(user.name || "there")},</p>
         <p>Use this one-time code to verify your account:</p>
         <p style="font-size:28px;font-weight:700;letter-spacing:6px">${code}</p>
@@ -182,4 +195,8 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function isEmailDebugEnabled() {
+  return String(process.env.EMAIL_DEBUG || "").toLowerCase() === "true";
 }

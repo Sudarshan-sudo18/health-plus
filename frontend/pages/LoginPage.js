@@ -9,6 +9,9 @@ export const LoginPage = {
     const verifyNotice = query.get("verify")
       ? `<div class="notice">Sign in to verify your email and activate your account.</div>`
       : "";
+    const resetNotice = query.get("reset")
+      ? `<div class="notice">Your password has been changed. Sign in with your new password.</div>`
+      : "";
     const deniedNotice = deniedPath
       ? `<div class="notice danger">Please sign in with the right account to access ${escapeHtml(deniedPath)}.</div>`
       : "";
@@ -35,6 +38,7 @@ export const LoginPage = {
           </div>
           <aside class="auth-card">
             ${verifyNotice}
+            ${resetNotice}
             ${deniedNotice}
             ${session ? `<div class="notice">Signed in as ${escapeHtml(session.email)} with ${escapeHtml(session.role)} access.</div>` : ""}
             <form id="loginForm" class="login-form">
@@ -56,7 +60,10 @@ export const LoginPage = {
                 Password
                 <input name="password" type="password" required placeholder="Your password">
               </label>
-              <button class="primary-button" type="submit">Login and Continue</button>
+              <div class="auth-form-actions">
+                <a href="/forgot-password" data-link>Forgot password?</a>
+                <button class="primary-button" type="submit" data-login-submit>Login and Continue</button>
+              </div>
             </form>
             <div class="auth-switch">
               <span>Need an account?</span>
@@ -69,19 +76,26 @@ export const LoginPage = {
   },
   afterRender({ navigate }, root) {
     const form = root.querySelector("#loginForm");
+    const submitButton = root.querySelector("[data-login-submit]");
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const data = new FormData(form);
-      await performLogin(
-        {
-          role: data.get("role"),
-          email: data.get("email"),
-          password: data.get("password")
-        },
-        navigate
-      );
+      submitButton.disabled = true;
+      submitButton.textContent = "Signing in...";
+      try {
+        await performLogin(
+          {
+            role: data.get("role"),
+            email: data.get("email"),
+            password: data.get("password")
+          },
+          navigate
+        );
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = "Login and Continue";
+      }
     });
-
   }
 };
 

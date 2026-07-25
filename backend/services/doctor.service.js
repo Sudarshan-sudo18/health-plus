@@ -267,7 +267,10 @@ async function findOwnDoctorDocument(user) {
 
 function ownDoctorFilter(user) {
   return {
-    $or: [{ userId: user._id }, { email: user.email }]
+    $or: [
+      { userId: user._id },
+      { userId: { $exists: false }, email: user.email }
+    ]
   };
 }
 
@@ -279,7 +282,7 @@ async function publicDoctorFilter() {
     isActive: { $ne: false },
     $or: [
       { userId: { $in: verifiedScope.userIds } },
-      { email: { $in: verifiedScope.emails } }
+      { userId: { $exists: false }, email: { $in: verifiedScope.emails } }
     ]
   };
 }
@@ -299,13 +302,10 @@ async function getVerifiedDoctorAccountScope() {
 }
 
 async function isDoctorAccountVerified(doctor) {
-  const user = await User.findOne({
-    role: "doctor",
-    $or: [
-      { _id: doctor.userId },
-      { email: String(doctor.email || "").toLowerCase() }
-    ]
-  }).select("isVerified").lean();
+  const filter = doctor.userId
+    ? { _id: doctor.userId, role: "doctor" }
+    : { email: String(doctor.email || "").toLowerCase(), role: "doctor" };
+  const user = await User.findOne(filter).select("isVerified").lean();
 
   return user?.isVerified === true;
 }
@@ -313,7 +313,7 @@ async function isDoctorAccountVerified(doctor) {
 function isDoctorInVerifiedScope(doctor, scope) {
   const userId = String(doctor.userId || "");
   const email = String(doctor.email || "").toLowerCase();
-  return scope.userIdStrings.has(userId) || scope.emailSet.has(email);
+  return userId ? scope.userIdStrings.has(userId) : scope.emailSet.has(email);
 }
 
 function assertProfileEmail(user, email) {

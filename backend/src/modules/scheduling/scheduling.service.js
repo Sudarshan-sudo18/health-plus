@@ -217,7 +217,10 @@ async function getDoctorForSchedulingUser(user) {
   }
 
   const doctor = await Doctor.findOne({
-    $or: [{ userId: user._id }, { email: user.email }]
+    $or: [
+      { userId: user._id },
+      { userId: { $exists: false }, email: user.email }
+    ]
   });
 
   if (!doctor) {
@@ -696,13 +699,10 @@ function cleanString(value) {
 }
 
 async function isBookableDoctorAccountVerified(doctor) {
-  const user = await User.findOne({
-    role: "doctor",
-    $or: [
-      { _id: doctor.userId },
-      { email: String(doctor.email || "").toLowerCase() }
-    ]
-  }).select("isVerified").lean();
+  const filter = doctor.userId
+    ? { _id: doctor.userId, role: "doctor" }
+    : { email: String(doctor.email || "").toLowerCase(), role: "doctor" };
+  const user = await User.findOne(filter).select("isVerified").lean();
 
   return user?.isVerified === true;
 }

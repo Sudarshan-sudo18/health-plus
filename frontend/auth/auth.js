@@ -90,6 +90,22 @@ export async function login({ email, password, role }) {
   return session;
 }
 
+export async function requestPasswordReset({ email, role }) {
+  return apiFetch("/auth/forgot-password", {
+    method: "POST",
+    auth: false,
+    body: { email, role }
+  });
+}
+
+export async function resetPassword({ token, password, role }) {
+  return apiFetch("/auth/reset-password", {
+    method: "POST",
+    auth: false,
+    body: { token, password, role }
+  });
+}
+
 export async function resendVerification(role = getRoleFromPath()) {
   return apiFetch("/auth/resend-verification", {
     method: "POST",
