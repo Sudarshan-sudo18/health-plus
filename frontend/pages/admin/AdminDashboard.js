@@ -20,12 +20,12 @@ import {
 import { apiFetch } from "/services/api.js";
 import { cacheSupportSettings } from "/services/support.js";
 
-const ADMIN_SECTIONS = ["overview", "doctors", "appointments", "payments", "profile", "settings"];
+const ADMIN_SECTIONS = ["overview", "doctors", "patients", "appointments", "payments", "profile", "settings"];
 
 export const AdminDashboard = {
-  title: "Health Plus | Admin",
-  render({ path, query }) {
-    const section = getActiveSection(query, ADMIN_SECTIONS);
+  title: "Ārogyam | Admin Console",
+  render({ path, query, section: routeSection }) {
+    const section = routeSection || getActiveSection(query, ADMIN_SECTIONS);
 
     return AppLayout({
       activePath: path,
@@ -35,8 +35,8 @@ export const AdminDashboard = {
       children: `<div id="adminContent">${LoadingState()}</div>`
     });
   },
-  afterRender({ navigate, query }, root) {
-    loadAdminDashboard(root, navigate, getActiveSection(query, ADMIN_SECTIONS));
+  afterRender({ navigate, query, section: routeSection }, root) {
+    loadAdminDashboard(root, navigate, routeSection || getActiveSection(query, ADMIN_SECTIONS));
   }
 };
 
@@ -95,6 +95,10 @@ function renderAdminData(data) {
     return renderAdminDoctorsSection(data);
   }
 
+  if (data.section === "patients") {
+    return renderAdminPatientsSection(data);
+  }
+
   if (data.section === "appointments") {
     return renderAdminAppointmentsSection(data);
   }
@@ -126,10 +130,10 @@ function renderAdminOverview(data, metrics) {
           eyebrow: "Quick actions",
           title: "Operations",
           children: QuickActionGrid([
-            { href: "/admin?section=doctors", icon: "icon-user", label: "Review doctors", note: "Approve or reject profiles" },
-            { href: "/admin?section=appointments", icon: "icon-calendar", label: "Manage bookings", note: "Cancel when needed" },
-            { href: "/admin?section=payments", icon: "icon-wallet", label: "Payment queue", note: "Review pending payments" },
-            { href: "/admin?section=settings", icon: "icon-mail", label: "Support settings", note: "Update public contact details" }
+            { href: "/admin/doctors", icon: "icon-user", label: "Review doctors", note: "Approve or reject profiles" },
+            { href: "/admin/bookings", icon: "icon-calendar", label: "Manage bookings", note: "Cancel when needed" },
+            { href: "/admin/payments", icon: "icon-wallet", label: "Payment queue", note: "Review pending payments" },
+            { href: "/admin/settings", icon: "icon-mail", label: "Support settings", note: "Update public contact details" }
           ])
         })}
         ${Panel({
@@ -195,6 +199,55 @@ function renderAdminDoctorsSection(data) {
         eyebrow: "Approval queue",
         title: "Doctor profiles",
         children: renderDoctorApprovalTable(data.doctors)
+      })}
+    </div>
+  `;
+}
+
+function renderAdminPatientsSection(data) {
+  const patients = Array.from(
+    data.bookings.reduce((map, booking) => {
+      const patient = typeof booking.patientId === "object" && booking.patientId ? booking.patientId : null;
+      const normalized = normalizeBooking(booking);
+      const key = patient?.id || patient?._id || normalized.patientName;
+      const current = map.get(key) || {
+        name: patient?.name || normalized.patientName,
+        email: patient?.email || "",
+        bookings: 0,
+        latestBooking: normalized.date,
+        status: normalized.status
+      };
+
+      current.bookings += 1;
+      current.latestBooking = normalized.date;
+      current.status = normalized.status;
+      map.set(key, current);
+      return map;
+    }, new Map()).values()
+  );
+
+  return `
+    <div class="section-stack">
+      ${Panel({
+        eyebrow: "Patient directory",
+        title: "Patients with bookings",
+        children: DataTable({
+          columns: [
+            {
+              label: "Patient",
+              key: "name",
+              render: (row) => `
+                <strong>${escapeHtml(row.name)}</strong>
+                ${row.email ? `<span class="muted-cell">${escapeHtml(row.email)}</span>` : ""}
+              `
+            },
+            { label: "Bookings", key: "bookings" },
+            { label: "Latest booking", key: "latestBooking" },
+            { label: "Status", key: "status", render: (row) => StatusBadge(row.status) }
+          ],
+          rows: patients,
+          emptyText: "No patient bookings yet."
+        })
       })}
     </div>
   `;
@@ -536,6 +589,7 @@ function updateFooterSupport(root, settings) {
 function getAdminTitle(section) {
   return {
     doctors: "Doctor Approvals",
+    patients: "Patients",
     appointments: "Appointments",
     payments: "Payments",
     profile: "Admin Profile",
@@ -550,7 +604,7 @@ function getAdminSubtitle(section) {
     appointments: "Monitor platform bookings and cancel when required.",
     payments: "Review payment status and waive fees when approved.",
     profile: "Manage your private admin details.",
-    settings: "Update customer support details shown across Health Plus.",
+    settings: "Update customer support details shown across Ārogyam.",
     overview: "A focused view of approvals, bookings, payments, and alerts."
   }[section] || "A focused view of approvals, bookings, payments, and alerts.";
 }

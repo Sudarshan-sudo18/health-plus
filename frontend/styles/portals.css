@@ -1,0 +1,261 @@
+.portal-patient {
+  --portal-accent: #1379c8;
+  --portal-accent-strong: #075a9f;
+  --portal-accent-soft: #e5f3ff;
+}
+
+.portal-doctor {
+  --portal-accent: #108c84;
+  --portal-accent-strong: #076d67;
+  --portal-accent-soft: #e4f8f5;
+}
+
+.portal-admin {
+  --portal-accent: #566b7a;
+  --portal-accent-strong: #344957;
+  --portal-accent-soft: #edf2f5;
+}
+
+.dashboard-app {
+  grid-template-columns: 12.25rem minmax(0, 1fr);
+}
+
+.sidebar {
+  gap: 0.62rem;
+  padding: 0.72rem;
+}
+
+.sidebar-brand {
+  padding-bottom: 0.5rem;
+}
+
+.sidebar .brand-mark,
+.portal-preview .metric-icon {
+  background: linear-gradient(135deg, var(--portal-accent), var(--portal-accent-strong));
+}
+
+.sidebar-section {
+  gap: 0.28rem;
+}
+
+.sidebar-secondary {
+  padding-top: 0.48rem;
+}
+
+.sidebar-label {
+  padding: 0 0.3rem;
+  font-size: 0.66rem;
+}
+
+.sidebar-nav {
+  gap: 0.15rem;
+}
+
+.nav-link {
+  min-height: 2.2rem;
+  gap: 0.48rem;
+  padding: 0.46rem 0.56rem;
+  font-size: 0.84rem;
+}
+
+.nav-link.active {
+  border-color: color-mix(in srgb, var(--portal-accent) 22%, transparent);
+  color: var(--portal-accent-strong);
+  background: var(--portal-accent-soft);
+  box-shadow: inset 3px 0 0 var(--portal-accent), 0 7px 16px rgba(25, 83, 125, 0.06);
+}
+
+.sidebar-card {
+  padding: 0.62rem;
+  border-left: 3px solid var(--portal-accent);
+  background: color-mix(in srgb, var(--portal-accent-soft) 66%, #fff);
+}
+
+.dashboard-topbar {
+  align-items: center;
+  padding: 0.78rem 1rem 0.68rem;
+}
+
+.dashboard-topbar .eyebrow {
+  color: var(--portal-accent-strong);
+}
+
+.dashboard-topbar h1 {
+  font-size: 1.46rem;
+}
+
+.topbar-actions {
+  gap: 0.45rem;
+}
+
+.topbar-search {
+  display: inline-flex;
+  width: min(18rem, 28vw);
+  min-height: 2.12rem;
+  align-items: center;
+  gap: 0.42rem;
+  padding: 0.42rem 0.58rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.topbar-search svg {
+  width: 0.92rem;
+  height: 0.92rem;
+}
+
+.notification-placeholder {
+  position: relative;
+  color: var(--portal-accent-strong);
+  opacity: 1 !important;
+}
+
+.notification-placeholder::after {
+  content: "";
+  position: absolute;
+  top: 0.38rem;
+  right: 0.36rem;
+  width: 0.32rem;
+  height: 0.32rem;
+  border: 1px solid #fff;
+  border-radius: 999px;
+  background: var(--portal-accent);
+}
+
+.topbar-profile {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.26rem 0.34rem;
+}
+
+.topbar-profile > span:last-child {
+  display: grid;
+  min-width: 0;
+  gap: 0.06rem;
+}
+
+.topbar-profile strong,
+.topbar-profile small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-profile strong {
+  max-width: 10rem;
+  font-size: 0.78rem;
+}
+
+.topbar-profile small {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.portal-patient .metric-icon,
+.portal-patient .empty-state-icon {
+  background: var(--portal-accent-soft);
+  color: var(--portal-accent-strong);
+}
+
+.portal-doctor .metric-icon,
+.portal-doctor .empty-state-icon {
+  background: var(--portal-accent-soft);
+  color: var(--portal-accent-strong);
+}
+
+.portal-admin .metric-icon,
+.portal-admin .empty-state-icon {
+  background: var(--portal-accent-soft);
+  color: var(--portal-accent-strong);
+}
+
+.empty-state {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.58rem;
+  min-height: 4.1rem;
+  padding: 0.68rem;
+  background: #fbfdff;
+}
+
+.empty-state.compact {
+  min-height: 3.1rem;
+  padding: 0.5rem;
+}
+
+.empty-state-icon {
+  display: grid;
+  width: 2.1rem;
+  height: 2.1rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--blue-soft);
+  color: var(--blue-strong);
+}
+
+.empty-state-icon svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.empty-state-copy {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.empty-state-copy strong {
+  font-size: 0.82rem;
+}
+
+.empty-state-copy span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+@media (max-width: 980px) {
+  .dashboard-app {
+    display: block;
+  }
+
+  .topbar-search {
+    width: min(15rem, 38vw);
+  }
+}
+
+@media (max-width: 780px) {
+  .dashboard-topbar {
+    align-items: stretch;
+  }
+
+  .topbar-actions {
+    width: 100%;
+  }
+
+  .topbar-search {
+    width: auto;
+    flex: 1;
+  }
+
+  .topbar-profile strong {
+    max-width: 8rem;
+  }
+
+  .empty-state {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .empty-state .small-button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}

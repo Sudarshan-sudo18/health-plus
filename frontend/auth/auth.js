@@ -11,17 +11,17 @@ const SESSION_KEYS = {
 export const roles = {
   admin: {
     label: "Admin",
-    dashboard: "/admin",
+    dashboard: "/admin/dashboard",
     description: "Manage users, appointments, reports, and platform oversight."
   },
   doctor: {
     label: "Doctor",
-    dashboard: "/doctor",
+    dashboard: "/doctor/dashboard",
     description: "Review appointments and patient medical records."
   },
   patient: {
     label: "Patient",
-    dashboard: "/patient",
+    dashboard: "/patient/dashboard",
     description: "Book appointments and view prescriptions."
   }
 };

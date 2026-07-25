@@ -6,13 +6,13 @@ export function TermsConsentModal(user) {
       <section class="terms-modal" role="dialog" aria-modal="true" aria-labelledby="termsTitle">
         <div class="terms-modal-head">
           <p class="eyebrow">Required consent</p>
-          <h2 id="termsTitle">Health Plus Terms and Care Advisory</h2>
+          <h2 id="termsTitle">Ārogyam Terms and Care Advisory</h2>
           <p>Before continuing, please review and accept the platform terms for ${escapeHtml(user?.email || "your account")}.</p>
         </div>
 
         <div class="terms-scroll" tabindex="0">
           <h3>Platform role</h3>
-          <p>Health Plus connects patients with independent medical professionals for virtual consultations. Health Plus acts as an intermediary platform and does not provide medical diagnosis, treatment, prescriptions, or emergency medical services directly.</p>
+          <p>Ārogyam connects patients with independent medical professionals for virtual consultations. Ārogyam acts as an intermediary platform and does not provide medical diagnosis, treatment, prescriptions, or emergency medical services directly.</p>
 
           <h3>Medical discretion</h3>
           <p>Any advice, diagnosis, prescription, or recommendation is provided by the consulting medical professional. Patients and medical professionals must use personal and professional discretion before acting on any information shared through the platform.</p>
@@ -27,7 +27,7 @@ export function TermsConsentModal(user) {
         <form id="termsConsentForm" class="terms-actions">
           <label class="consent-check">
             <input id="termsConsentCheckbox" name="termsConsent" type="checkbox" required>
-            <span>I have read and accept the Health Plus terms and care advisory.</span>
+            <span>I have read and accept the Ārogyam terms and care advisory.</span>
           </label>
           <button id="termsConsentButton" class="primary-button" type="submit" disabled>Accept and Continue</button>
         </form>

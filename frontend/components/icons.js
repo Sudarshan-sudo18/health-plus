@@ -8,6 +8,8 @@ export function IconSprite() {
       <symbol id="icon-wallet" viewBox="0 0 24 24"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H19a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5.5A2.5 2.5 0 0 1 3 17.5v-10Z"></path><path d="M18 12h3v4h-3a2 2 0 0 1 0-4Z"></path></symbol>
       <symbol id="icon-star" viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3Z"></path></symbol>
       <symbol id="icon-mail" viewBox="0 0 24 24"><path d="M4 5h16v14H4z"></path><path d="m4 7 8 6 8-6"></path></symbol>
+      <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></symbol>
+      <symbol id="icon-bell" viewBox="0 0 24 24"><path d="M18 10a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z"></path><path d="M10 22h4"></path></symbol>
       <symbol id="icon-report" viewBox="0 0 24 24"><path d="M4 19.5V4.5A2.5 2.5 0 0 1 6.5 2h9L20 6.5v13A2.5 2.5 0 0 1 17.5 22h-11A2.5 2.5 0 0 1 4 19.5Z"></path><path d="M15 2v5h5M8 15h8M8 18h5M8 11h8"></path></symbol>
       <symbol id="icon-prescription" viewBox="0 0 24 24"><path d="M5 3h8a5 5 0 0 1 0 10H8v8H5V3Z"></path><path d="m14 13 5 8M17 17l3-4"></path></symbol>
     </svg>

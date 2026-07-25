@@ -55,7 +55,7 @@ export function QuickActionGrid(actions = []) {
 
 export function CompactList({ items = [], emptyText = "No recent activity.", renderItem }) {
   if (!items.length) {
-    return `<div class="empty-state compact">${escapeHtml(emptyText)}</div>`;
+    return EmptyState({ icon: "icon-calendar", title: emptyText, compact: true });
   }
 
   return `
@@ -67,12 +67,7 @@ export function CompactList({ items = [], emptyText = "No recent activity.", ren
 
 export function DataTable({ columns, rows, emptyText = "No records found." }) {
   if (!rows.length) {
-    return `
-      <div class="empty-state table-empty">
-        <svg><use href="#icon-report"></use></svg>
-        <strong>${escapeHtml(emptyText)}</strong>
-      </div>
-    `;
+    return EmptyState({ icon: "icon-report", title: emptyText, compact: true, className: "table-empty" });
   }
 
   return `
@@ -99,6 +94,19 @@ export function ErrorState(message = "Something went wrong.", actionLabel = "Try
     <div class="empty-state error-state">
       <strong>${escapeHtml(message)}</strong>
       ${actionLabel ? `<button class="small-button" type="button" data-retry-load>${escapeHtml(actionLabel)}</button>` : ""}
+    </div>
+  `;
+}
+
+export function EmptyState({ icon = "icon-report", title, message = "", actionLabel = "", actionHref = "", compact = false, className = "" }) {
+  return `
+    <div class="empty-state${compact ? " compact" : ""}${className ? ` ${escapeHtml(className)}` : ""}">
+      <span class="empty-state-icon" aria-hidden="true"><svg><use href="#${escapeHtml(icon)}"></use></svg></span>
+      <div class="empty-state-copy">
+        <strong>${escapeHtml(title || "Nothing to show yet.")}</strong>
+        ${message ? `<span>${escapeHtml(message)}</span>` : ""}
+      </div>
+      ${actionLabel && actionHref ? `<a class="small-button" href="${escapeHtml(actionHref)}" data-link>${escapeHtml(actionLabel)}</a>` : ""}
     </div>
   `;
 }
@@ -167,7 +175,7 @@ export function DoctorAvailabilityCard({ doctor, selectedDate, mode = "patient" 
                   })
                 )
                 .join("")
-            : `<div class="empty-state compact">${escapeHtml(emptySlotText)}</div>`
+            : EmptyState({ icon: "icon-calendar", title: emptySlotText, compact: true })
         }
         ${bookedSlots.map((slot) => renderSlotButton({ doctorId, slot, mode, disabled: true })).join("")}
       </div>

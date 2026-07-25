@@ -12,7 +12,7 @@ export function SchedulingManager({ rules = [], exceptions = [], profile }) {
         <div>
           <p class="eyebrow">Recurring windows</p>
           <h3>Weekly availability</h3>
-          <span>Set bookable windows. Health Plus generates appointment slots for each selected date.</span>
+          <span>Set bookable windows. Ārogyam generates appointment slots for each selected date.</span>
         </div>
         <button class="primary-button" type="submit" form="schedulingRulesForm">Save schedule</button>
       </div>

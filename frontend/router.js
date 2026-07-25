@@ -7,12 +7,14 @@ import {
   refreshMe,
   requiresEmailVerification
 } from "/auth/auth.js";
+import { resolvePortalRoute } from "/config/portals.js";
 import { bindLayoutActions } from "/components/layout.js";
 import { bindTermsConsent, TermsConsentModal } from "/components/terms.js";
 import { toast } from "/components/ui.js";
 import { LoginPage } from "/pages/LoginPage.js";
 import { SignupPage } from "/pages/SignupPage.js";
 import { VerifyEmailPage } from "/pages/VerifyEmailPage.js";
+import { LandingPage } from "/pages/LandingPage.js";
 import { AdminDashboard } from "/pages/admin/AdminDashboard.js";
 import { DoctorDashboard } from "/pages/doctor/DoctorDashboard.js";
 import { PatientDashboard } from "/pages/patient/PatientDashboard.js";
@@ -20,14 +22,17 @@ import { PatientDashboard } from "/pages/patient/PatientDashboard.js";
 let appRoot = null;
 
 const routes = [
-  { path: "/", page: LoginPage, public: true },
+  { path: "/", page: LandingPage, public: true },
   { path: "/login", page: LoginPage, public: true },
   { path: "/signup", page: SignupPage, public: true },
   { path: "/verify-email", page: VerifyEmailPage, verification: true },
-  { path: "/admin", page: AdminDashboard, role: "admin" },
-  { path: "/doctor", page: DoctorDashboard, role: "doctor" },
-  { path: "/patient", page: PatientDashboard, role: "patient" }
 ];
+
+const dashboardPages = {
+  admin: AdminDashboard,
+  doctor: DoctorDashboard,
+  patient: PatientDashboard
+};
 
 export function startRouter(root) {
   appRoot = root;
@@ -45,7 +50,8 @@ export function navigate(path) {
 }
 
 export async function renderRoute() {
-  const route = findRoute(window.location.pathname);
+  const query = new URLSearchParams(window.location.search);
+  const route = findRoute(window.location.pathname, query);
 
   if (!route) {
     replaceRoute("/login");
@@ -82,7 +88,7 @@ export async function renderRoute() {
   }
 
   appRoot.innerHTML = renderAuthLoading("Checking your access...");
-  document.title = "Health Plus";
+  document.title = "Ārogyam";
 
   if (!activeSession || !getAccessToken(route.role)) {
     const denied = encodeURIComponent(route.path);
@@ -118,7 +124,9 @@ function renderPage(route, activeSession) {
     navigate,
     session: activeSession,
     path: route.path,
-    query: new URLSearchParams(window.location.search)
+    query: new URLSearchParams(window.location.search),
+    section: route.section?.id,
+    portal: route.portal || null
   };
 
   appRoot.innerHTML = route.page.render(context);
@@ -126,12 +134,24 @@ function renderPage(route, activeSession) {
   if (route.page.afterRender) {
     route.page.afterRender(context, appRoot);
   }
-  document.title = route.page.title || "Health Plus";
+  document.title = route.page.title || "Ārogyam";
 }
 
-function findRoute(pathname) {
+function findRoute(pathname, query = new URLSearchParams()) {
   const normalized = pathname.replace(/\/$/, "") || "/";
-  return routes.find((route) => route.path === normalized);
+  const staticRoute = routes.find((route) => route.path === normalized);
+  if (staticRoute) return staticRoute;
+
+  const portalRoute = resolvePortalRoute(normalized, query);
+  if (!portalRoute?.section) return null;
+
+  return {
+    path: normalized,
+    page: dashboardPages[portalRoute.role],
+    role: portalRoute.role,
+    section: portalRoute.section,
+    portal: portalRoute.portal
+  };
 }
 
 function replaceRoute(path) {
@@ -158,7 +178,7 @@ function renderAuthLoading(message) {
 
 async function renderVerificationRoute() {
   appRoot.innerHTML = renderAuthLoading("Checking your verification status...");
-  document.title = "Health Plus";
+  document.title = "Ārogyam";
 
   const query = new URLSearchParams(window.location.search);
   const requestedRole = query.get("role");

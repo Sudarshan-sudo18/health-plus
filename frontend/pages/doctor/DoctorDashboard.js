@@ -37,9 +37,9 @@ import {
 const DOCTOR_SECTIONS = ["overview", "appointments", "patients", "profile", "availability", "payments"];
 
 export const DoctorDashboard = {
-  title: "Health Plus | Doctor",
-  render({ path, query }) {
-    const section = getActiveSection(query, DOCTOR_SECTIONS);
+  title: "Ārogyam | Doctor Portal",
+  render({ path, query, section: routeSection }) {
+    const section = routeSection || getActiveSection(query, DOCTOR_SECTIONS);
 
     return AppLayout({
       activePath: path,
@@ -49,8 +49,8 @@ export const DoctorDashboard = {
       children: `<div id="doctorContent">${LoadingState()}</div>`
     });
   },
-  afterRender({ navigate, session, query }, root) {
-    loadDoctorDashboard(root, navigate, session, getActiveSection(query, DOCTOR_SECTIONS));
+  afterRender({ navigate, session, query, section: routeSection }, root) {
+    loadDoctorDashboard(root, navigate, session, routeSection || getActiveSection(query, DOCTOR_SECTIONS));
   }
 };
 
@@ -143,9 +143,9 @@ function renderDoctorOverview(data, metrics) {
           eyebrow: "Quick actions",
           title: "Workspace shortcuts",
           children: QuickActionGrid([
-            { href: "/doctor?section=appointments", icon: "icon-calendar", label: "Appointments", note: "Confirm or complete visits" },
-            { href: "/doctor?section=availability", icon: "icon-video", label: "Availability", note: "Update weekly slots" },
-            { href: "/doctor?section=profile", icon: "icon-shield", label: "Profile", note: "Maintain onboarding details" }
+            { href: "/doctor/appointments", icon: "icon-calendar", label: "Appointments", note: "Confirm or complete visits" },
+            { href: "/doctor/availability", icon: "icon-video", label: "Availability", note: "Update weekly slots" },
+            { href: "/doctor/profile", icon: "icon-shield", label: "Profile", note: "Maintain onboarding details" }
           ])
         })}
         ${Panel({

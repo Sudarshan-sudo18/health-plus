@@ -2,7 +2,7 @@ import { register, roles } from "/auth/auth.js";
 import { MetricCard, escapeHtml, toast } from "/components/ui.js";
 
 export const SignupPage = {
-  title: "Health Plus | Signup",
+  title: "Ārogyam | Create account",
   render() {
     return `
       <div class="auth-page">
@@ -10,10 +10,10 @@ export const SignupPage = {
           <div class="auth-copy">
             <a class="brand auth-brand" href="/login" data-link>
               <span class="brand-mark" aria-hidden="true"><span></span></span>
-              <span class="brand-name">Health Plus</span>
+              <span class="brand-name">Ārogyam</span>
             </a>
             <p class="eyebrow">Create account</p>
-            <h1>Create your Health Plus care account.</h1>
+            <h1>Create your Ārogyam care account.</h1>
             <p class="lead">
               Use one secure account to access care, manage appointments, or
               support patients as a verified medical professional.
@@ -50,7 +50,7 @@ export const SignupPage = {
               </label>
               <label class="consent-check signup-consent">
                 <input name="termsAccepted" type="checkbox" required>
-                <span>I accept the Health Plus terms and care advisory.</span>
+                <span>I accept the Ārogyam terms and care advisory.</span>
               </label>
               <button class="primary-button" type="submit">Create Account</button>
             </form>

@@ -1,75 +1,38 @@
 import { getDashboardForRole, getRoleFromPath, getSession, logout } from "/auth/auth.js";
+import { getPortal, getPortalSection, groupPortalSections } from "/config/portals.js";
 import { navigate } from "/router.js";
 import { getCachedSupportSettings, refreshSupportSettings } from "/services/support.js";
 
 const DEFAULT_SECTION = "overview";
-
-const roleSections = {
-  admin: [
-    ["overview", "Overview", "icon-report"],
-    ["doctors", "Doctors", "icon-user"],
-    ["appointments", "Appointments", "icon-calendar"],
-    ["payments", "Payments", "icon-wallet"],
-    ["profile", "Profile", "icon-shield"],
-    ["settings", "Settings", "icon-mail"]
-  ],
-  doctor: [
-    ["overview", "Overview", "icon-report"],
-    ["appointments", "Appointments", "icon-calendar"],
-    ["patients", "Patients", "icon-user"],
-    ["profile", "Profile", "icon-shield"],
-    ["availability", "Availability", "icon-video"],
-    ["payments", "Payments", "icon-wallet"]
-  ],
-  patient: [
-    ["overview", "Overview", "icon-report"],
-    ["doctors", "Doctors", "icon-user"],
-    ["appointments", "Appointments", "icon-calendar"],
-    ["payments", "Payments", "icon-wallet"],
-    ["profile", "Profile", "icon-shield"]
-  ]
-};
 
 export function AppLayout({ title, subtitle, activePath, activeSection = DEFAULT_SECTION, children }) {
   const routeRole = getRoleFromPath(activePath);
   const session = getSession(routeRole);
   const user = session?.user;
   const dashboardPath = user ? getDashboardForRole(user.role) : "/login";
-  const roleLabel = user ? sentenceCase(user.role) : "Guest";
-  const userName = user?.name || user?.email || "Health Plus user";
-  const section = getSectionMeta(user?.role, activeSection);
+  const portal = getPortal(user?.role || routeRole);
+  const roleLabel = portal?.label || (user ? sentenceCase(user.role) : "Guest");
+  const userName = user?.name || user?.email || "Ārogyam user";
+  const section = getPortalSection(user?.role, activeSection);
   const supportSettings = getCachedSupportSettings();
 
   return `
-    <div class="app-frame dashboard-app">
+    <div class="app-frame dashboard-app portal-${escapeHtml(portal?.accent || "default")}">
       <aside class="sidebar">
         <a class="brand sidebar-brand" href="${dashboardPath}" data-link>
           <span class="brand-mark" aria-hidden="true"><span></span></span>
           <span class="brand-copy">
-            <span class="brand-name">Health Plus</span>
-            <small>Virtual care platform</small>
+            <span class="brand-name">Ārogyam</span>
+            <small>${escapeHtml(portal?.label || "Connected care")}</small>
           </span>
         </a>
 
-        <div class="sidebar-section">
-          <span class="sidebar-label">Workspace</span>
-          <nav class="sidebar-nav" aria-label="Role navigation">
-            ${user ? roleNav(user.role, activePath, activeSection) : `<a class="nav-link" href="/login" data-link>Login</a>`}
-          </nav>
-        </div>
-
-        <div class="sidebar-section sidebar-secondary">
-          <span class="sidebar-label">Account</span>
-          <a class="nav-link" href="/login" data-link>
-            <svg><use href="#icon-user"></use></svg>
-            <span>Switch role</span>
-          </a>
-        </div>
+        ${user ? roleNav(user.role, activeSection) : `<div class="sidebar-section"><nav class="sidebar-nav" aria-label="Portal navigation"><a class="nav-link" href="/login" data-link>Login</a></nav></div>`}
 
         <div class="sidebar-card">
-          <span class="eyebrow">${escapeHtml(roleLabel)} access</span>
+          <span class="eyebrow">${escapeHtml(portal?.shortLabel || roleLabel)} workspace</span>
           <strong>${escapeHtml(roleSummary(user?.role))}</strong>
-          <small>Your workspace is verified before care tools open.</small>
+          <small>Secure tools organised around your daily work.</small>
         </div>
 
         <div class="sidebar-account">
@@ -85,14 +48,24 @@ export function AppLayout({ title, subtitle, activePath, activeSection = DEFAULT
       <div class="workspace">
         <header class="dashboard-topbar">
           <div>
-            <p class="eyebrow">${escapeHtml(roleLabel)} dashboard</p>
+            <p class="eyebrow">${escapeHtml(roleLabel)}</p>
             <h1>${escapeHtml(title)}</h1>
             <p class="lead small">${escapeHtml(subtitle)}</p>
           </div>
           <div class="topbar-actions">
-            <div class="account-pill">
-              <svg><use href="#icon-shield"></use></svg>
-              <span>${escapeHtml(section?.label || roleLabel)}</span>
+            <div class="topbar-search" role="search" aria-label="Search placeholder">
+              <svg><use href="#icon-search"></use></svg>
+              <span>${escapeHtml(portal?.searchPlaceholder || "Search")}</span>
+            </div>
+            <button class="icon-button notification-placeholder" type="button" disabled title="Notifications will appear here" aria-label="Notifications coming soon">
+              <svg><use href="#icon-bell"></use></svg>
+            </button>
+            <div class="topbar-profile" aria-label="Signed in user">
+              <span class="account-avatar" aria-hidden="true">${escapeHtml(initials(userName))}</span>
+              <span>
+                <strong>${escapeHtml(userName)}</strong>
+                <small>${escapeHtml(section?.label || portal?.shortLabel || roleLabel)}</small>
+              </span>
             </div>
           </div>
         </header>
@@ -105,8 +78,8 @@ export function AppLayout({ title, subtitle, activePath, activeSection = DEFAULT
           <div class="footer-brand">
             <span class="brand-mark footer-mark" aria-hidden="true"><span></span></span>
             <span class="footer-brand-copy">
-              <strong>Health Plus</strong>
-              <small>Virtual care coordination for patients, doctors, and admins.</small>
+              <strong>Ārogyam</strong>
+              <small>Connected care for patients, doctors, and care teams.</small>
             </span>
           </div>
           <div class="footer-support">
@@ -161,32 +134,31 @@ function formatSupportLine(settings) {
   return [settings.supportPhone, settings.supportTiming].filter(Boolean).join(" | ");
 }
 
-function roleNav(role, activePath, activeSection) {
-  const items = roleSections[role] || [];
-  const dashboardPath = getDashboardForRole(role);
+function roleNav(role, activeSection) {
+  const groups = groupPortalSections(role);
 
-  return items
+  return Object.entries(groups)
     .map(
-      ([section, label, icon]) => {
-        const href = section === DEFAULT_SECTION ? dashboardPath : `${dashboardPath}?section=${section}`;
-        const isActive = activePath === dashboardPath && activeSection === section;
-
-        return `
-        <a class="nav-link${isActive ? " active" : ""}" href="${href}" data-link ${isActive ? 'aria-current="page"' : ""}>
-          <svg><use href="#${icon}"></use></svg>
-          <span>${label}</span>
-        </a>
-      `;
-      }
+      ([group, sections]) => `
+        <div class="sidebar-section${group === "Account" || group === "Administration" ? " sidebar-secondary" : ""}">
+          <span class="sidebar-label">${escapeHtml(group)}</span>
+          <nav class="sidebar-nav" aria-label="${escapeHtml(group)} navigation">
+            ${sections
+              .map((section) => {
+                const isActive = activeSection === section.id;
+                return `
+                  <a class="nav-link${isActive ? " active" : ""}" href="${section.path}" data-link ${isActive ? 'aria-current="page"' : ""}>
+                    <svg><use href="#${section.icon}"></use></svg>
+                    <span>${escapeHtml(section.label)}</span>
+                  </a>
+                `;
+              })
+              .join("")}
+          </nav>
+        </div>
+      `
     )
     .join("");
-}
-
-function getSectionMeta(role, activeSection) {
-  const match = (roleSections[role] || []).find(([section]) => section === activeSection);
-  if (!match) return null;
-  const [id, label, icon] = match;
-  return { id, label, icon };
 }
 
 function sentenceCase(value) {
@@ -195,9 +167,9 @@ function sentenceCase(value) {
 
 function roleSummary(role) {
   return {
-    admin: "Approvals, booking oversight, and platform operations.",
-    doctor: "Profile onboarding, availability, and patient bookings.",
-    patient: "Doctor discovery, slot booking, and visit history."
+    admin: "Operations, approvals, and booking oversight.",
+    doctor: "Appointments, availability, and patient care.",
+    patient: "Appointments, doctors, and care details."
   }[role] || "Secure dashboard access.";
 }
 

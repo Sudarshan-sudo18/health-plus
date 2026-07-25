@@ -1,7 +1,7 @@
 const SUPPORT_CACHE_KEY = "healthplus_support_settings";
 
 export const DEFAULT_SUPPORT_SETTINGS = {
-  supportEmail: "support@healthplus.com",
+  supportEmail: "support@arogyam.com",
   supportPhone: "",
   supportTiming: "Monday to Friday, 9:00 AM - 6:00 PM"
 };

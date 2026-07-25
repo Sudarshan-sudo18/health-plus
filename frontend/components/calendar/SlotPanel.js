@@ -1,6 +1,7 @@
 import {
   DoctorAvailabilityCard,
   DoctorAvatar,
+  EmptyState,
   StatusBadge,
   escapeHtml,
   formatCurrency,
@@ -9,7 +10,11 @@ import {
 
 export function DoctorSelectionList({ doctors = [], selectedDoctorId = "" }) {
   if (!doctors.length) {
-    return `<div class="empty-state">No approved doctors are available for patients right now.</div>`;
+    return EmptyState({
+      icon: "icon-user",
+      title: "No doctors are available right now.",
+      message: "Please check back soon for newly approved providers."
+    });
   }
 
   return `
@@ -21,12 +26,12 @@ export function DoctorSelectionList({ doctors = [], selectedDoctorId = "" }) {
 
 export function SlotPanel({ doctor, selectedDate }) {
   if (!doctor) {
-    return `
-      <div class="empty-state slot-panel-empty">
-        <strong>Select a doctor</strong>
-        <span>Choose a doctor to view appointment times.</span>
-      </div>
-    `;
+    return EmptyState({
+      icon: "icon-calendar",
+      title: "Select a doctor to view appointment times.",
+      message: "Choose a provider above to continue.",
+      className: "slot-panel-empty"
+    });
   }
 
   return `

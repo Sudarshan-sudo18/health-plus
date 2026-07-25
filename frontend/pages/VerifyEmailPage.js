@@ -6,7 +6,7 @@ import {
 import { escapeHtml, toast } from "/components/ui.js";
 
 export const VerifyEmailPage = {
-  title: "Health Plus | Verify Email",
+  title: "Ārogyam | Verify email",
   render({ session }) {
     const email = session?.user?.email || session?.email || "";
 
@@ -16,13 +16,13 @@ export const VerifyEmailPage = {
           <div class="auth-copy">
             <a class="brand auth-brand" href="/login" data-link>
               <span class="brand-mark" aria-hidden="true"><span></span></span>
-              <span class="brand-name">Health Plus</span>
+              <span class="brand-name">Ārogyam</span>
             </a>
             <p class="eyebrow">Email verification</p>
             <h1>Confirm your email to continue.</h1>
             <p class="lead">
               Enter the one-time code sent to ${escapeHtml(email || "your email address")}
-              to activate secure access to Health Plus care services.
+              to activate secure access to Ārogyam care services.
             </p>
           </div>
           <aside class="auth-card verification-card">
@@ -77,7 +77,7 @@ export const VerifyEmailPage = {
           role: session.role,
           code: data.get("code")
         });
-        toast("Email verified. Welcome to Health Plus.");
+        toast("Email verified. Welcome to Ārogyam.");
         navigate(getDashboardForRole(verifiedSession.role));
       } catch (error) {
         toast(error.message || "Verification failed.");

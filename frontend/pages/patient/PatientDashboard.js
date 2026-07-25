@@ -25,9 +25,9 @@ const PATIENT_SECTIONS = ["overview", "doctors", "appointments", "payments", "pr
 const BOOKING_WINDOW_DAYS = 90;
 
 export const PatientDashboard = {
-  title: "Health Plus | Patient",
-  render({ path, query }) {
-    const section = getActiveSection(query, PATIENT_SECTIONS);
+  title: "Ārogyam | Patient Portal",
+  render({ path, query, section: routeSection }) {
+    const section = routeSection || getActiveSection(query, PATIENT_SECTIONS);
 
     return AppLayout({
       activePath: path,
@@ -37,11 +37,11 @@ export const PatientDashboard = {
       children: `<div id="patientContent">${LoadingState()}</div>`
     });
   },
-  afterRender({ navigate, query }, root) {
+  afterRender({ navigate, query, section: routeSection }, root) {
     loadPatientDashboard(
       root,
       navigate,
-      getActiveSection(query, PATIENT_SECTIONS),
+      routeSection || getActiveSection(query, PATIENT_SECTIONS),
       normalizePatientBookingDate(query.get("date") || getSelectedDate(root)),
       query.get("doctor") || getSelectedDoctorId(root),
       normalizeCalendarMonth(query.get("month") || normalizePatientBookingDate(query.get("date") || getSelectedDate(root)))
@@ -139,10 +139,10 @@ function renderPatientOverview(data, metrics, openSlotCount) {
           eyebrow: "Quick actions",
           title: "Next steps",
           children: QuickActionGrid([
-            { href: "/patient?section=doctors", icon: "icon-calendar", label: "Book appointment", note: "Find open slots" },
-            { href: "/patient?section=appointments", icon: "icon-video", label: "View bookings", note: "Manage upcoming care" },
-            { href: "/patient?section=profile", icon: "icon-shield", label: "Complete profile", note: "Keep care details ready" },
-            { href: "/patient?section=payments", icon: "icon-wallet", label: "Payment status", note: "Review consultation status" }
+            { href: "/patient/doctors", icon: "icon-calendar", label: "Book appointment", note: "Find open slots" },
+            { href: "/patient/appointments", icon: "icon-video", label: "View bookings", note: "Manage upcoming care" },
+            { href: "/patient/profile", icon: "icon-shield", label: "Complete profile", note: "Keep care details ready" },
+            { href: "/patient/payments", icon: "icon-wallet", label: "Payment status", note: "Review consultation status" }
           ])
         })}
         ${Panel({
@@ -162,7 +162,7 @@ function renderPatientOverview(data, metrics, openSlotCount) {
             <div class="status-summary">
               <strong>${escapeHtml(data.profileResult?.isProfileComplete ? "Profile ready" : "Profile incomplete")}</strong>
               <span>${escapeHtml(data.profileResult?.isProfileComplete ? "Your care details are saved." : "Complete your profile before your next consultation.")}</span>
-              <a class="small-button" href="/patient?section=profile" data-link>Open profile</a>
+              <a class="small-button" href="/patient/profile" data-link>Open profile</a>
             </div>
           `
         })}
@@ -459,7 +459,6 @@ function getVisibleCalendarMonth(root) {
 
 function getPatientBookingUrl({ doctorId, selectedDate, calendarMonth }) {
   const params = new URLSearchParams({
-    section: "doctors",
     date: normalizePatientBookingDate(selectedDate),
     month: normalizeCalendarMonth(calendarMonth || selectedDate)
   });
@@ -468,7 +467,7 @@ function getPatientBookingUrl({ doctorId, selectedDate, calendarMonth }) {
     params.set("doctor", doctorId);
   }
 
-  return `/patient?${params.toString()}`;
+  return `/patient/doctors?${params.toString()}`;
 }
 
 function normalizePatientBookingDate(date) {
@@ -500,7 +499,7 @@ function getPatientTitle(section) {
 function getPatientSubtitle(section) {
   return {
     doctors: "Choose a date, select an available slot, and share consultation notes.",
-    appointments: "Review and manage your Health Plus bookings.",
+    appointments: "Review and manage your Ārogyam bookings.",
     payments: "Track payment status for your consultations.",
     profile: "Keep your private care details up to date.",
     overview: "A focused view of care activity, upcoming visits, and next actions."

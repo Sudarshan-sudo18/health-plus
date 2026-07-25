@@ -2,7 +2,7 @@ import { getDashboardForRole, getSession, login, requiresEmailVerification, role
 import { MetricCard, escapeHtml, toast } from "/components/ui.js";
 
 export const LoginPage = {
-  title: "Health Plus | Login",
+  title: "Ārogyam | Sign in",
   render({ query }) {
     const session = getSession();
     const deniedPath = query.get("denied");
@@ -19,10 +19,10 @@ export const LoginPage = {
           <div class="auth-copy">
             <a class="brand auth-brand" href="/login" data-link>
               <span class="brand-mark" aria-hidden="true"><span></span></span>
-              <span class="brand-name">Health Plus</span>
+              <span class="brand-name">Ārogyam</span>
             </a>
             <p class="eyebrow">Secure access</p>
-            <h1>Sign in with your Health Plus account.</h1>
+            <h1>Sign in to your Ārogyam account.</h1>
             <p class="lead">
               Continue to your dedicated workspace for virtual consultations,
               appointment management, and care coordination.
