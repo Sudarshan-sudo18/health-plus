@@ -1,0 +1,382 @@
+.portal-patient .dashboard-shell {
+  max-width: 1180px;
+  padding-top: 1.35rem;
+}
+
+.patient-overview {
+  display: grid;
+  gap: 2.1rem;
+}
+
+.patient-welcome-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(16rem, 0.38fr);
+  gap: 2rem;
+  align-items: center;
+  padding: clamp(1.5rem, 3vw, 2.6rem);
+  border-radius: 18px;
+  background: linear-gradient(135deg, #f4fbff 0%, #ffffff 72%);
+  box-shadow: 0 18px 45px rgba(26, 93, 134, 0.1);
+}
+
+.patient-welcome-copy {
+  max-width: 38rem;
+}
+
+.patient-welcome-copy h2 {
+  margin: 0;
+  color: #123a56;
+  font-size: clamp(1.7rem, 3vw, 2.45rem);
+  font-weight: 650;
+  line-height: 1.12;
+}
+
+.patient-welcome-copy > p:not(.eyebrow) {
+  max-width: 32rem;
+  margin: 0.75rem 0 1.4rem;
+  color: #567184;
+  line-height: 1.6;
+}
+
+.patient-primary-action {
+  min-height: 2.8rem;
+  padding-inline: 1rem;
+}
+
+.patient-primary-action svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.patient-profile-prompt {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.8rem;
+  align-items: start;
+  padding: 1rem;
+  border: 1px solid #d9e9f2;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.patient-profile-prompt.complete {
+  border-color: #cfece1;
+  background: #f6fcf9;
+}
+
+.patient-profile-icon,
+.patient-appointment-icon {
+  display: inline-grid;
+  width: 2.35rem;
+  height: 2.35rem;
+  place-items: center;
+  border-radius: 10px;
+  color: #1178b5;
+  background: #e5f4fc;
+}
+
+.patient-profile-prompt.complete .patient-profile-icon {
+  color: #177956;
+  background: #e2f6ed;
+}
+
+.patient-profile-icon svg,
+.patient-appointment-icon svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.patient-profile-prompt strong,
+.patient-profile-prompt span {
+  display: block;
+}
+
+.patient-profile-prompt strong {
+  color: #193d56;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.patient-profile-prompt span {
+  margin-top: 0.2rem;
+  color: #627c8d;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.patient-profile-prompt a {
+  grid-column: 2;
+  color: #0c74b4;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.patient-overview-section {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.patient-section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.patient-section-heading h2 {
+  margin: 0;
+  color: #183c56;
+  font-size: 1.15rem;
+  font-weight: 650;
+}
+
+.patient-section-heading .eyebrow {
+  margin-bottom: 0.22rem;
+}
+
+.text-link {
+  color: #0d75b4;
+  font-size: 0.84rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.patient-upcoming-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 1.05rem 1.15rem;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 10px 28px rgba(26, 83, 117, 0.08);
+}
+
+.patient-upcoming-copy span,
+.patient-upcoming-copy p {
+  color: #648094;
+  font-size: 0.83rem;
+}
+
+.patient-upcoming-copy h3 {
+  margin: 0.12rem 0;
+  color: #173d59;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.patient-upcoming-copy p {
+  margin: 0;
+}
+
+.patient-empty-card {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-height: 6.3rem;
+  padding: 1rem 1.15rem;
+  border: 0;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 10px 28px rgba(26, 83, 117, 0.08);
+}
+
+.patient-empty-card .empty-state-icon {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 10px;
+  color: #1178b5;
+  background: #e8f5fc;
+}
+
+.patient-empty-card .empty-state-copy {
+  gap: 0.18rem;
+}
+
+.patient-empty-card .empty-state-copy strong {
+  color: #183d58;
+  font-size: 0.95rem;
+}
+
+.patient-empty-card .empty-state-copy span {
+  color: #648094;
+  font-size: 0.83rem;
+}
+
+.patient-doctor-rail {
+  display: grid;
+  grid-auto-columns: minmax(15rem, 1fr);
+  grid-auto-flow: column;
+  gap: 0.9rem;
+  overflow-x: auto;
+  padding: 0.1rem 0 0.45rem;
+  scrollbar-width: thin;
+}
+
+.patient-doctor-card {
+  display: grid;
+  gap: 1rem;
+  min-height: 12.4rem;
+  padding: 1.05rem;
+  border: 1px solid rgba(213, 230, 240, 0.85);
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 8px 20px rgba(26, 83, 117, 0.06);
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.patient-doctor-card:hover {
+  border-color: #b9dce9;
+  box-shadow: 0 14px 28px rgba(26, 83, 117, 0.11);
+  transform: translateY(-2px);
+}
+
+.patient-doctor-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.patient-doctor-card .doctor-avatar {
+  width: 2.65rem;
+  height: 2.65rem;
+  flex: 0 0 auto;
+}
+
+.patient-doctor-card-head span {
+  display: block;
+  color: #638094;
+  font-size: 0.78rem;
+}
+
+.patient-doctor-card h3 {
+  margin: 0.14rem 0 0;
+  color: #183d58;
+  font-size: 0.96rem;
+  font-weight: 700;
+}
+
+.patient-doctor-meta,
+.patient-doctor-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.patient-doctor-meta {
+  color: #6a8394;
+  font-size: 0.78rem;
+}
+
+.patient-doctor-meta strong {
+  color: #173c57;
+  font-size: 0.9rem;
+}
+
+.patient-doctor-card-foot {
+  align-self: end;
+  padding-top: 0.85rem;
+  border-top: 1px solid #edf3f6;
+}
+
+.patient-availability {
+  color: #6a8394;
+  font-size: 0.76rem;
+}
+
+.patient-availability.available {
+  color: #177956;
+}
+
+.patient-doctor-card-foot a {
+  color: #0d75b4;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.patient-activity-section .compact-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.patient-activity-section .compact-list-item {
+  min-height: 4.7rem;
+  padding: 0.9rem;
+  border: 1px solid rgba(214, 231, 240, 0.78);
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.patient-activity-section .compact-list-item strong {
+  color: #183d58;
+  font-size: 0.85rem;
+}
+
+.patient-activity-section .compact-list-item span:not(.status-badge) {
+  margin-top: 0.25rem;
+  color: #6a8394;
+  font-size: 0.76rem;
+}
+
+.portal-patient .patient-footer {
+  justify-content: flex-start;
+  margin-top: 0.4rem;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+@media (max-width: 860px) {
+  .patient-welcome-card {
+    grid-template-columns: 1fr;
+  }
+
+  .patient-profile-prompt {
+    max-width: 32rem;
+  }
+
+  .patient-activity-section .compact-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .portal-patient .dashboard-shell {
+    padding-top: 1rem;
+  }
+
+  .patient-overview {
+    gap: 1.55rem;
+  }
+
+  .patient-welcome-card {
+    gap: 1.25rem;
+    padding: 1.25rem;
+    border-radius: 14px;
+  }
+
+  .patient-section-heading {
+    align-items: center;
+  }
+
+  .patient-upcoming-card,
+  .patient-empty-card {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .patient-upcoming-card .small-button,
+  .patient-empty-card .small-button {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .patient-doctor-rail {
+    grid-auto-columns: minmax(14.2rem, 84vw);
+  }
+
+  .patient-activity-section .compact-list {
+    grid-template-columns: 1fr;
+  }
+}

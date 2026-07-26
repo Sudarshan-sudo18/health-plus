@@ -5,7 +5,7 @@ import { getCachedSupportSettings, refreshSupportSettings } from "/services/supp
 
 const DEFAULT_SECTION = "overview";
 
-export function AppLayout({ title, subtitle, activePath, activeSection = DEFAULT_SECTION, children }) {
+export function AppLayout({ title, subtitle, activePath, activeSection = DEFAULT_SECTION, patientExperience = false, children }) {
   const routeRole = getRoleFromPath(activePath);
   const session = getSession(routeRole);
   const user = session?.user;
@@ -29,11 +29,13 @@ export function AppLayout({ title, subtitle, activePath, activeSection = DEFAULT
 
         ${user ? roleNav(user.role, activeSection) : `<div class="sidebar-section"><nav class="sidebar-nav" aria-label="Portal navigation"><a class="nav-link" href="/login" data-link>Login</a></nav></div>`}
 
-        <div class="sidebar-card">
-          <span class="eyebrow">${escapeHtml(portal?.shortLabel || roleLabel)} workspace</span>
-          <strong>${escapeHtml(roleSummary(user?.role))}</strong>
-          <small>Secure tools organised around your daily work.</small>
-        </div>
+        ${patientExperience ? "" : `
+          <div class="sidebar-card">
+            <span class="eyebrow">${escapeHtml(portal?.shortLabel || roleLabel)} workspace</span>
+            <strong>${escapeHtml(roleSummary(user?.role))}</strong>
+            <small>Secure tools organised around your daily work.</small>
+          </div>
+        `}
 
         <div class="sidebar-account">
           <div class="account-avatar" aria-hidden="true">${escapeHtml(initials(userName))}</div>
@@ -74,7 +76,7 @@ export function AppLayout({ title, subtitle, activePath, activeSection = DEFAULT
           ${children}
         </main>
 
-        <footer class="footer">
+        <footer class="footer${patientExperience ? " patient-footer" : ""}">
           <div class="footer-brand">
             <span class="brand-mark footer-mark" aria-hidden="true"><span></span></span>
             <span class="footer-brand-copy">
@@ -82,14 +84,16 @@ export function AppLayout({ title, subtitle, activePath, activeSection = DEFAULT
               <small>Connected care for patients, doctors, and care teams.</small>
             </span>
           </div>
-          <div class="footer-support">
-            <span>Customer support</span>
-            <a class="support-line" href="mailto:${escapeHtml(supportSettings.supportEmail)}" data-support-email>
-              <svg><use href="#icon-mail"></use></svg>
-              <strong>${escapeHtml(supportSettings.supportEmail)}</strong>
-            </a>
-            <small data-support-phone>${escapeHtml(formatSupportLine(supportSettings))}</small>
-          </div>
+          ${patientExperience ? "" : `
+            <div class="footer-support">
+              <span>Customer support</span>
+              <a class="support-line" href="mailto:${escapeHtml(supportSettings.supportEmail)}" data-support-email>
+                <svg><use href="#icon-mail"></use></svg>
+                <strong>${escapeHtml(supportSettings.supportEmail)}</strong>
+              </a>
+              <small data-support-phone>${escapeHtml(formatSupportLine(supportSettings))}</small>
+            </div>
+          `}
         </footer>
       </div>
     </div>

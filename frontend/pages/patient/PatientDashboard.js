@@ -2,20 +2,17 @@ import { AppLayout, getActiveSection } from "/components/layout.js";
 import { BookingCalendar, normalizeCalendarMonth } from "/components/calendar/Calendar.js";
 import { DoctorSelectionList, SlotPanel } from "/components/calendar/SlotPanel.js";
 import { bindProfilePhotoInputs, PatientProfileForm } from "/components/profile.js";
+import { PatientOverview } from "/components/patient/PatientOverview.js";
 import {
   BookingTable,
-  CompactList,
   ErrorState,
   LoadingState,
-  MetricCard,
   Panel,
-  QuickActionGrid,
   escapeHtml,
   formatDateInputValue,
   isCancelledBooking,
   isPastVisitBooking,
   isUpcomingBooking,
-  normalizeBooking,
   toast
 } from "/components/ui.js";
 import { apiFetch } from "/services/api.js";
@@ -34,6 +31,7 @@ export const PatientDashboard = {
       activeSection: section,
       title: getPatientTitle(section),
       subtitle: getPatientSubtitle(section),
+      patientExperience: true,
       children: `<div id="patientContent">${LoadingState()}</div>`
     });
   },
@@ -92,21 +90,6 @@ async function loadPatientDashboard(
 }
 
 function renderPatientData(data) {
-  const openSlotCount = data.doctors.reduce(
-    (total, doctor) => total + (doctor.availabilityForDate?.availableSlots?.length || 0),
-    0
-  );
-  const activeBookings = data.bookings.map(normalizeBooking).filter(isUpcomingBooking).length;
-
-  const metrics = `
-    <section class="metric-grid">
-      ${MetricCard({ icon: "icon-shield", label: "Approved doctors", value: String(data.doctors.length), note: "Available providers" })}
-      ${MetricCard({ icon: "icon-calendar", label: "Open slots", value: String(openSlotCount), note: "Selected doctor/date" })}
-      ${MetricCard({ icon: "icon-video", label: "Upcoming bookings", value: String(activeBookings), note: "Scheduled visits" })}
-      ${MetricCard({ icon: "icon-prescription", label: "Profile", value: data.profileResult?.isProfileComplete ? "Complete" : "Incomplete", note: "Care details" })}
-    </section>
-  `;
-
   if (data.section === "doctors") {
     return renderDoctorBookingSection(data);
   }
@@ -123,52 +106,7 @@ function renderPatientData(data) {
     return renderPatientProfileSection(data);
   }
 
-  return renderPatientOverview(data, metrics, openSlotCount);
-}
-
-function renderPatientOverview(data, metrics, openSlotCount) {
-  const rows = data.bookings.map(normalizeBooking);
-  const upcoming = rows.filter(isUpcomingBooking).slice(0, 4);
-  const recent = rows.slice(0, 4);
-
-  return `
-    <div class="section-stack">
-      ${metrics}
-      <div class="dashboard-grid overview-grid">
-        ${Panel({
-          eyebrow: "Quick actions",
-          title: "Next steps",
-          children: QuickActionGrid([
-            { href: "/patient/doctors", icon: "icon-calendar", label: "Book appointment", note: "Find open slots" },
-            { href: "/patient/appointments", icon: "icon-video", label: "View bookings", note: "Manage upcoming care" },
-            { href: "/patient/profile", icon: "icon-shield", label: "Complete profile", note: "Keep care details ready" },
-            { href: "/patient/payments", icon: "icon-wallet", label: "Payment status", note: "Review consultation status" }
-          ])
-        })}
-        ${Panel({
-          eyebrow: "Upcoming",
-          title: "Appointments",
-          children: renderCompactBookings(upcoming, "No upcoming appointments.")
-        })}
-        ${Panel({
-          eyebrow: "Activity",
-          title: "Recent bookings",
-          children: renderCompactBookings(recent, "No booking activity yet.")
-        })}
-        ${Panel({
-          eyebrow: "Profile",
-          title: "Care readiness",
-          children: `
-            <div class="status-summary">
-              <strong>${escapeHtml(data.profileResult?.isProfileComplete ? "Profile ready" : "Profile incomplete")}</strong>
-              <span>${escapeHtml(data.profileResult?.isProfileComplete ? "Your care details are saved." : "Complete your profile before your next consultation.")}</span>
-              <a class="small-button" href="/patient/profile" data-link>Open profile</a>
-            </div>
-          `
-        })}
-      </div>
-    </div>
-  `;
+  return PatientOverview(data);
 }
 
 function renderPatientProfileSection(data) {
@@ -291,20 +229,6 @@ function renderPatientPaymentsSection(data) {
       })}
     </div>
   `;
-}
-
-function renderCompactBookings(bookings, emptyText) {
-  return CompactList({
-    items: bookings,
-    emptyText,
-    renderItem: (booking) => `
-      <div>
-        <strong>${escapeHtml(booking.doctorName)}</strong>
-        <span>${escapeHtml(booking.date)} &middot; ${escapeHtml(booking.time || "Slot pending")}</span>
-      </div>
-      <span class="status-badge status-${escapeHtml(booking.status)}">${escapeHtml(booking.status)}</span>
-    `
-  });
 }
 
 function bindPatientActions(root, navigate, section) {
