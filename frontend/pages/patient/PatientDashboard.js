@@ -137,21 +137,33 @@ function renderDoctorBookingSection(data) {
   const maxBookingDate = getMaxBookingDate();
 
   return `
-    <div class="section-stack">
+    <div class="booking-experience">
       <input id="bookingDate" type="hidden" value="${escapeHtml(data.selectedDate)}">
       <input id="selectedDoctorId" type="hidden" value="${escapeHtml(data.selectedDoctorId || "")}">
-      <div class="booking-flow-grid">
+      <section class="booking-flow-intro">
+        <div>
+          <p class="eyebrow">Book a consultation</p>
+          <h2>Choose a doctor and a time that suits you.</h2>
+          <p>Compare trusted care providers, then confirm an available appointment in a few simple steps.</p>
+        </div>
+        <ol class="booking-flow-steps" aria-label="Booking steps">
+          <li class="active"><span>1</span> Doctor</li>
+          <li><span>2</span> Date</li>
+          <li><span>3</span> Time</li>
+        </ol>
+      </section>
+      ${Panel({
+        eyebrow: "Step 1",
+        title: "Find the right doctor",
+        children: DoctorSelectionList({
+          doctors: data.doctors,
+          selectedDoctorId: data.selectedDoctorId
+        })
+      })}
+      <div class="booking-scheduling-grid">
         ${Panel({
-          eyebrow: "Doctor",
-          title: "Choose a doctor",
-          children: DoctorSelectionList({
-            doctors: data.doctors,
-            selectedDoctorId: data.selectedDoctorId
-          })
-        })}
-        ${Panel({
-          eyebrow: "Calendar",
-          title: "Select a date",
+          eyebrow: "Step 2",
+          title: "Choose an appointment date",
           children: BookingCalendar({
             selectedDate: data.selectedDate,
             displayMonth: data.calendarMonth,
@@ -159,19 +171,19 @@ function renderDoctorBookingSection(data) {
             maxDate: maxBookingDate
           })
         })}
-      </div>
-      ${Panel({
-        eyebrow: "Slots",
-        title: "Confirm appointment time",
-        children: `
+        ${Panel({
+          eyebrow: "Step 3",
+          title: "Select and confirm a time",
+          children: `
           <label class="booking-note-field">
-            Consultation notes
+            Notes for your doctor <span class="optional-field">Optional</span>
             <textarea id="bookingNotes" rows="3" maxlength="1000" placeholder="Briefly describe the concern for the doctor"></textarea>
-            <span>Shared with the doctor when you confirm a slot.</span>
+            <span>Only your selected doctor can see this when the appointment is confirmed.</span>
           </label>
           ${SlotPanel({ doctor: data.selectedDoctor, selectedDate: data.selectedDate })}
         `
-      })}
+        })}
+      </div>
     </div>
   `;
 }
@@ -233,6 +245,7 @@ function renderPatientPaymentsSection(data) {
 
 function bindPatientActions(root, navigate, section) {
   bindProfilePhotoInputs(root);
+  bindDoctorDiscoveryFilters(root);
 
   root.querySelector("#patientProfileForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -302,6 +315,13 @@ function bindPatientActions(root, navigate, section) {
         bookButton.dataset.slot = button.dataset.time;
         bookButton.dataset.startDatetime = button.dataset.startDatetime || "";
         bookButton.dataset.endDatetime = button.dataset.endDatetime || "";
+
+        const summary = card.querySelector("[data-booking-summary]");
+        const summaryLabel = summary?.querySelector("[data-selected-slot-label]");
+        summary?.classList.add("is-ready");
+        if (summaryLabel) {
+          summaryLabel.textContent = `Selected time: ${button.textContent.trim()}`;
+        }
       }
     });
   });
@@ -361,6 +381,45 @@ function bindPatientActions(root, navigate, section) {
       }
     });
   });
+}
+
+function bindDoctorDiscoveryFilters(root) {
+  const searchField = root.querySelector("[data-doctor-search]");
+  const specialtyField = root.querySelector("[data-doctor-specialty-filter]");
+  const languageField = root.querySelector("[data-doctor-language-filter]");
+  const cards = Array.from(root.querySelectorAll("[data-doctor-discovery-card]"));
+  const resultCount = root.querySelector("[data-doctor-result-count]");
+  const emptyState = root.querySelector("[data-doctor-filter-empty]");
+
+  if (!cards.length) return;
+
+  const applyFilters = () => {
+    const search = String(searchField?.value || "").trim().toLowerCase();
+    const specialty = String(specialtyField?.value || "").trim().toLowerCase();
+    const language = String(languageField?.value || "").trim().toLowerCase();
+    let visibleCount = 0;
+
+    cards.forEach((card) => {
+      const matchesSearch = !search || `${card.dataset.doctorName} ${card.dataset.doctorSpecialty} ${card.dataset.doctorLanguages}`.includes(search);
+      const matchesSpecialty = !specialty || card.dataset.doctorSpecialty === specialty;
+      const matchesLanguage = !language || String(card.dataset.doctorLanguages || "").includes(language);
+      const isVisible = matchesSearch && matchesSpecialty && matchesLanguage;
+
+      card.hidden = !isVisible;
+      if (isVisible) visibleCount += 1;
+    });
+
+    if (resultCount) {
+      resultCount.textContent = `${visibleCount} doctor${visibleCount === 1 ? "" : "s"} available`;
+    }
+    if (emptyState) {
+      emptyState.hidden = visibleCount > 0;
+    }
+  };
+
+  searchField?.addEventListener("input", applyFilters);
+  specialtyField?.addEventListener("change", applyFilters);
+  languageField?.addEventListener("change", applyFilters);
 }
 
 function bindRetry(root, navigate, section) {

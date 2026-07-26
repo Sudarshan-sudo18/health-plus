@@ -122,46 +122,53 @@ export function DoctorAvailabilityCard({ doctor, selectedDate, mode = "patient" 
   const availableSlotDetails = availability.availableSlotDetails;
   const bookedSlots = availability.bookedSlots;
   const languages = doctor.languagesSpoken || doctor.languages || [];
-  const emptySlotText = getSlotEmptyText({ doctor, selectedDate, availability, isApproved, isActive });
-  const providerStatus = availableSlots.length ? "available" : "unavailable";
+  const emptySlotText = getSlotEmptyText({
+    doctor,
+    selectedDate,
+    availability,
+    isApproved,
+    isActive
+  });
+  const nextSlot = availableSlotDetails[0]?.startDateTime
+    ? formatTimeRange(availableSlotDetails[0].startDateTime, availableSlotDetails[0].endDateTime)
+    : availableSlots[0] || "No appointment times on this date";
 
   return `
-    <article class="availability-card" data-doctor-card="${escapeHtml(doctorId)}">
-      <div class="availability-head">
+    <article class="availability-card booking-confirmation-card" data-doctor-card="${escapeHtml(doctorId)}">
+      <div class="booking-provider-header">
         <div class="doctor-identity">
           ${DoctorAvatar(doctor.profilePicture, fullName)}
           <div>
-            <span class="eyebrow">${escapeHtml(specialization)}</span>
+            <span class="booking-provider-specialty">${escapeHtml(specialization)}</span>
             <h3>${escapeHtml(fullName)}</h3>
-            ${doctor.email ? `<p>${escapeHtml(doctor.email)}</p>` : ""}
+            <p>${escapeHtml(doctor.bio || "Professional care tailored to your appointment needs.")}</p>
           </div>
         </div>
-        ${mode === "admin" ? StatusBadge(doctor.rejectionReason ? "rejected" : isActive ? (isApproved ? "approved" : "pending") : "inactive") : ""}
+        <span class="booking-provider-fee">${escapeHtml(formatCurrency(doctor.consultationFee || 0))}</span>
       </div>
 
-      ${mode === "patient" ? `<div class="provider-status-row">${StatusBadge("approved")}${StatusBadge(providerStatus)}</div>` : ""}
-
-      <div class="doctor-card-meta">
-        <span>${escapeHtml(doctor.qualification || "Qualification pending")}</span>
-        <span>${escapeHtml(String(doctor.yearsOfExperience ?? 0))} years</span>
-        <strong>${escapeHtml(formatCurrency(doctor.consultationFee || 0))}</strong>
-      </div>
-
-      <div class="doctor-card-meta secondary">
+      <div class="booking-provider-details">
+        <span>${escapeHtml(String(doctor.yearsOfExperience ?? 0))} years experience</span>
+        <span>${escapeHtml(doctor.consultationDuration || 30)} minute consultation</span>
         <span>${escapeHtml(formatConsultationMode(doctor.consultationMode))}</span>
-        <span>${escapeHtml(String(doctor.consultationDuration || 30))} min</span>
-        <strong>${escapeHtml(doctor.hospitalAffiliation || doctor.clinicName || "Independent practice")}</strong>
       </div>
 
-      ${doctor.bio ? `<p class="doctor-bio">${escapeHtml(doctor.bio)}</p>` : ""}
-      ${languages.length ? `<div class="chip-row">${languages.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>` : ""}
+      ${languages.length ? `<div class="booking-provider-languages">${languages.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>` : ""}
 
-      <div class="selected-day">
-        <strong>${escapeHtml(availability.day)}</strong>
-        <span>${escapeHtml(formatDateLabel(selectedDate))} &middot; ${availableSlots.length} open</span>
+      <div class="booking-date-summary">
+        <span>Appointment date</span>
+        <strong>${escapeHtml(formatDateLabel(selectedDate))}</strong>
+        <small>${availableSlots.length ? `Next available: ${escapeHtml(nextSlot)}` : "Choose a different date to view more times"}</small>
       </div>
 
-      <div class="slot-grid" aria-label="Available appointment slots">
+      <div class="booking-slot-heading">
+        <div>
+          <span>Available times</span>
+          <h4>Choose a time that works for you</h4>
+        </div>
+        <small>${availableSlots.length} open</small>
+      </div>
+      <div class="slot-grid booking-slot-grid" aria-label="Available appointment slots">
         ${
           availableSlots.length
             ? availableSlots
@@ -180,13 +187,19 @@ export function DoctorAvailabilityCard({ doctor, selectedDate, mode = "patient" 
         ${bookedSlots.map((slot) => renderSlotButton({ doctorId, slot, mode, disabled: true })).join("")}
       </div>
 
-      ${renderWeeklyAvailability(doctor.availability)}
+      <div class="booking-selection-summary" data-booking-summary aria-live="polite">
+        <span class="booking-selection-icon" aria-hidden="true"><svg><use href="#icon-calendar"></use></svg></span>
+        <div>
+          <span>Review your appointment</span>
+          <strong data-selected-slot-label>Choose an available time to continue.</strong>
+        </div>
+      </div>
 
       ${
         mode === "patient"
           ? `<button class="primary-button booking-submit" type="button" data-create-booking="${escapeHtml(doctorId)}" disabled>
               <svg><use href="#icon-calendar"></use></svg>
-              Book selected slot
+              Confirm appointment
             </button>`
           : `<button class="small-button" type="button" data-approve-doctor="${escapeHtml(doctorId)}" ${isApproved ? "disabled" : ""}>
               ${isApproved ? "Approved" : "Approve doctor"}
@@ -378,27 +391,6 @@ function renderSlotButton({ doctorId, slot, detail, mode, disabled }) {
     >
       ${escapeHtml(label)}${disabled ? " booked" : ""}
     </button>
-  `;
-}
-
-function renderWeeklyAvailability(availability = []) {
-  if (!availability.length) {
-    return `<div class="weekly-schedule empty">Weekly availability not set.</div>`;
-  }
-
-  return `
-    <div class="weekly-schedule">
-      ${availability
-        .map(
-          (item) => `
-            <span>
-              <strong>${escapeHtml(item.day || "Day")}</strong>
-              ${escapeHtml((item.slots || []).join(", ") || "No slots")}
-            </span>
-          `
-        )
-        .join("")}
-    </div>
   `;
 }
 
