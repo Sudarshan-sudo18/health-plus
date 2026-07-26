@@ -387,6 +387,7 @@ function bindDoctorDiscoveryFilters(root) {
   const searchField = root.querySelector("[data-doctor-search]");
   const specialtyField = root.querySelector("[data-doctor-specialty-filter]");
   const languageField = root.querySelector("[data-doctor-language-filter]");
+  const availabilityField = root.querySelector("[data-doctor-availability-filter]");
   const cards = Array.from(root.querySelectorAll("[data-doctor-discovery-card]"));
   const resultCount = root.querySelector("[data-doctor-result-count]");
   const emptyState = root.querySelector("[data-doctor-filter-empty]");
@@ -397,13 +398,15 @@ function bindDoctorDiscoveryFilters(root) {
     const search = String(searchField?.value || "").trim().toLowerCase();
     const specialty = String(specialtyField?.value || "").trim().toLowerCase();
     const language = String(languageField?.value || "").trim().toLowerCase();
+    const availability = String(availabilityField?.value || "").trim().toLowerCase();
     let visibleCount = 0;
 
     cards.forEach((card) => {
       const matchesSearch = !search || `${card.dataset.doctorName} ${card.dataset.doctorSpecialty} ${card.dataset.doctorLanguages}`.includes(search);
       const matchesSpecialty = !specialty || card.dataset.doctorSpecialty === specialty;
       const matchesLanguage = !language || String(card.dataset.doctorLanguages || "").includes(language);
-      const isVisible = matchesSearch && matchesSpecialty && matchesLanguage;
+      const matchesAvailability = !availability || card.dataset.doctorAvailability === availability;
+      const isVisible = matchesSearch && matchesSpecialty && matchesLanguage && matchesAvailability;
 
       card.hidden = !isVisible;
       if (isVisible) visibleCount += 1;
@@ -420,6 +423,7 @@ function bindDoctorDiscoveryFilters(root) {
   searchField?.addEventListener("input", applyFilters);
   specialtyField?.addEventListener("change", applyFilters);
   languageField?.addEventListener("change", applyFilters);
+  availabilityField?.addEventListener("change", applyFilters);
 }
 
 function bindRetry(root, navigate, section) {

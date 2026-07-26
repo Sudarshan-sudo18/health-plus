@@ -153,6 +153,12 @@ export function DoctorAvailabilityCard({ doctor, selectedDate, mode = "patient" 
         <span>${escapeHtml(formatConsultationMode(doctor.consultationMode))}</span>
       </div>
 
+      <div class="booking-provider-credentials">
+        <span>Credentials</span>
+        <strong>${escapeHtml(doctor.qualification || "Verified medical professional")}</strong>
+        ${doctor.hospitalAffiliation ? `<small>${escapeHtml(doctor.hospitalAffiliation)}</small>` : ""}
+      </div>
+
       ${languages.length ? `<div class="booking-provider-languages">${languages.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>` : ""}
 
       <div class="booking-date-summary">

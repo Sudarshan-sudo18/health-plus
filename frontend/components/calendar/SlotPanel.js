@@ -38,6 +38,15 @@ export function DoctorSelectionList({ doctors = [], selectedDoctorId = "" }) {
             ${getFilterOptions(doctors, (doctor) => doctor.languagesSpoken || doctor.languages || []).map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("")}
           </select>
         </label>
+        <label class="doctor-filter-field">
+          <span class="visually-hidden">Filter by availability</span>
+          <select data-doctor-availability-filter>
+            <option value="">All availability</option>
+            <option value="available">Available on selected date</option>
+            <option value="scheduled">Has scheduled availability</option>
+            <option value="unavailable">No times on selected date</option>
+          </select>
+        </label>
       </div>
       <div class="doctor-discovery-meta">
         <span data-doctor-result-count>${doctors.length} doctor${doctors.length === 1 ? "" : "s"} available</span>
@@ -84,6 +93,10 @@ function DoctorSelectionCard({ doctor, selectedDoctorId }) {
   const languages = Array.isArray(doctor.languagesSpoken || doctor.languages)
     ? (doctor.languagesSpoken || doctor.languages).slice(0, 3)
     : [];
+  const availabilityState = getAvailabilityState(doctor);
+  const availabilityLabel = getAvailabilityLabel(doctor, availabilityState);
+  const consultationMode = String(doctor.consultationMode || "online").toLowerCase();
+  const consultationLabel = consultationMode === "offline" ? "In-clinic consultations" : "Online consultations";
   const nextAvailability = getNextAvailabilityLabel(doctor, openSlots);
   const searchableLanguages = languages.join(" ").toLowerCase();
 
@@ -94,6 +107,7 @@ function DoctorSelectionCard({ doctor, selectedDoctorId }) {
       data-doctor-name="${escapeHtml(fullName.toLowerCase())}"
       data-doctor-specialty="${escapeHtml(specialization.toLowerCase())}"
       data-doctor-languages="${escapeHtml(searchableLanguages)}"
+      data-doctor-availability="${availabilityState}"
     >
       <div class="booking-doctor-option-head">
         ${DoctorAvatar(doctor.profilePicture, fullName)}
@@ -105,6 +119,14 @@ function DoctorSelectionCard({ doctor, selectedDoctorId }) {
         ${isActive ? `<span class="doctor-selected-state">Selected</span>` : ""}
       </div>
       ${doctor.bio ? `<p class="booking-doctor-bio">${escapeHtml(doctor.bio)}</p>` : ""}
+      <div class="booking-doctor-status-row">
+        <span class="doctor-availability-indicator ${availabilityState}">
+          <span aria-hidden="true"></span>${escapeHtml(availabilityLabel)}
+        </span>
+        <span class="doctor-online-indicator${consultationMode === "offline" ? " offline" : ""}">
+          <span aria-hidden="true"></span>${escapeHtml(consultationLabel)}
+        </span>
+      </div>
       <div class="booking-doctor-details">
         <span>${escapeHtml(doctor.qualification || "Verified medical professional")}</span>
         <span>${escapeHtml(nextAvailability)}</span>
@@ -144,4 +166,23 @@ function getNextAvailabilityLabel(doctor, openSlots) {
   }
 
   return "Select to view next available time";
+}
+
+function getAvailabilityState(doctor) {
+  const availabilityForDate = doctor.availabilityForDate;
+
+  if (availabilityForDate?.availableSlots?.length) return "available";
+  if (availabilityForDate) return "unavailable";
+
+  const hasScheduledAvailability = Array.isArray(doctor.availability)
+    && doctor.availability.some((rule) => Array.isArray(rule?.slots) && rule.slots.length);
+
+  return hasScheduledAvailability ? "scheduled" : "unknown";
+}
+
+function getAvailabilityLabel(doctor, availabilityState) {
+  if (availabilityState === "available") return "Times available";
+  if (availabilityState === "unavailable") return "No times on this date";
+  if (availabilityState === "scheduled") return "Availability scheduled";
+  return doctor.isActive === false ? "Currently unavailable" : "View appointment times";
 }
