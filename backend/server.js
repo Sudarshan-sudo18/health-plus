@@ -23,8 +23,13 @@ const port = Number(process.env.PORT || 3000);
 app.use(cors({ origin: process.env.CLIENT_ORIGIN || true }));
 app.use(express.json());
 
-app.get("/health", (_, res) => {
-  res.json({ status: "ok", service: "health-plus-api" });
+app.get("/health", (req, res) => {
+  console.log("Health check received from:", req.ip);
+  res.status(200).json({
+    status: "ok",
+    service: "health-plus-api",
+    timestamp: new Date().toISOString()
+  });
 });
 
 app.use(express.static(frontendPath));
