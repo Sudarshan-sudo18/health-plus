@@ -75,9 +75,15 @@ app.use((error, req, res, next) => {
   });
 });
 
+console.log("Starting database connection...");
 await connectDatabase();
-await migrateUserIdentityIndexes();
+console.log("Database connected.");
 
+console.log("Running migrations...");
+await migrateUserIdentityIndexes();
+console.log("Migrations complete.");
+
+console.log("Starting server...");
 app.listen(port, () => {
   console.log(`Health Plus API running at http://localhost:${port}`);
 });
